@@ -79,7 +79,7 @@ EF_SF <- ggplot(df_final, aes(y = zscore_SF, x = zscore_EF)) +
   theme(plot.title = element_text(hjust = 0.1))
 
 # Save plot
-filename <- paste0(figure_path, "/SF_EF.pdf")
+filename <- paste0(figure_path, "/Fig3_SF_EF.pdf")
 ggsave(filename, plot = EF_SF, width = 5, height = 4, units = "in")
 
 
@@ -147,10 +147,10 @@ cor_test_shifting
 cor_test_inhibition
 
 # Plot GRID with EF sub-scores
-EFsubscores_SF <- plot_grid(SF_updating,SF_shifting,SF_inhibition, ncol = 3, nrow = 1)
+EFsubscores_SF <- plot_grid(SF_inhibition,SF_updating,SF_shifting, ncol = 3, nrow = 1)
 
 # Save plot
-filename <- paste0(figure_path, "/SF_EFsubscores.pdf")
+filename <- paste0(figure_path, "/Fig4_SF_EFsubscores.pdf")
 ggsave(filename, plot = EFsubscores_SF, width = 12, height = 4, units = "in")
 
 

@@ -54,17 +54,30 @@ df_stopsignal <- select(df_stopsignal, -prob_stop, -ssd, -stop_rt, -nonstop_rt, 
 df_stroop <- select(df_stroop, -mean_latency_congruent, -mean_latency_noncongruent, -mean_latency_control, -percentage_resp_correct, -percentage_excluded_data, -block)
 
 # For each participant, get the SF game with the maximum score for multitask
-df_SF <- df_SF[df_SF$Type == "multitask", ]
-df_SF <- do.call(rbind, by(df_SF, df_SF$Participant, function(x) x[which.max(x$TotalScore), ]))
-df_SF <- df_SF[, c("Participant", "TotalScore", "Flight", "Bonus", "Mine", "Fortress")]
-
-
 df_SF$Participant <- gsub("sub-", "", df_SF$Participant)
 df_SF$Participant <- as.numeric(df_SF$Participant)
+df_SF_best_score <- df_SF[df_SF$Type == "multitask", ]
+df_SF_best_score <- do.call(rbind, by(df_SF_best_score, df_SF_best_score$Participant, function(x) x[which.max(x$TotalScore), ]))
+df_SF_best_score <- df_SF_best_score[, c("Participant", "TotalScore", "Flight", "Bonus", "Mine", "Fortress")]
+
+# Filter for multitask games only and select relevant games
+multi_games <- c("G02", "G04", "G06", "G08", "G10")
+df_SF_multi <- df_SF %>%
+  filter(Type == "multitask", Game %in% multi_games)
+
+# Pivot to wide format: one row per participant, columns for each multitask game score
+df_SF_wide <- df_SF_multi %>%
+  arrange(Participant, Game) %>%
+  mutate(Game_num = match(Game, multi_games)) %>%
+  pivot_wider(
+    id_cols = Participant,
+    names_from = Game_num,
+    values_from = TotalScore,
+    names_prefix = "SF_multi_0"
+  )
 
 df_demographics$Participant <- gsub("P", "", df_demographics$Participant)
 df_demographics$Participant <- as.numeric(df_demographics$Participant)
-
 
 # Rename the columns
 names(df_antisaccade)[names(df_antisaccade) == 'score_mean_corrected'] <- 'antisaccade'
@@ -76,12 +89,13 @@ names(df_lettermemory)[names(df_lettermemory) == 'propCorrect'] <- 'lettermemory
 names(df_stopsignal)[names(df_stopsignal) == 'ssrt_integration'] <- 'stopsignal'
 names(df_stroop)[names(df_stroop) == 'InhibitionCost'] <- 'stroop'
 names(df_numberletter)[names(df_numberletter) == 'switchCost'] <- 'numberletter'
-names(df_SF)[names(df_SF) == 'TotalScore'] <- 'SF'
+names(df_SF_best_score)[names(df_SF_best_score) == 'TotalScore'] <- 'SF'
 
 # Merge all dataframes into one dataframe, df_final
-df_list <- list(df_demographics, df_antisaccade, df_categoryswitch, df_colorshape, df_dualnback, df_keeptrack, df_lettermemory, df_stopsignal, df_stroop, df_numberletter, df_SF)
+df_list <- list(df_demographics, df_antisaccade, df_categoryswitch, df_colorshape, df_dualnback, df_keeptrack, df_lettermemory, df_stopsignal, df_stroop, df_numberletter, df_SF_best_score, df_SF_wide)
 df_final <- Reduce(function(x, y) merge(x, y, by = "Participant", all = TRUE), df_list)
 df_final <- df_final[complete.cases(df_final), ]
+df_final <- df_final[df_final$Inclusion == 1, ] # Select only included participants
 
 # Save the final dataframe into a CSV file
 results_file <- file.path(project_dir, "results", "combined_data", "data.csv")

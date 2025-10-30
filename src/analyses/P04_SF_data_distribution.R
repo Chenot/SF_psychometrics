@@ -60,14 +60,21 @@ cat("Kolmogorov-Smirnov test p-value (jittered): ", ks_test_jittered$p.value, "\
 
 # Generating plots
 # Distribution QQ-plot
-qqplot <- ggqqplot(df_final$SF, 
-                   xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+qqplot <- ggqqplot(
+  data = df_final, x = "SF",
+  color = "black",
+  xlab = "Theoretical Quantiles", ylab = "Sample Quantiles")
+
+# change the first layer (points) to black with alpha 0.5
+qqplot$layers[[1]]$aes_params$colour <- "black"
+qqplot$layers[[1]]$aes_params$size <- 1.5
+qqplot$layers[[1]]$aes_params$alpha <- 0.5
 
 SF_data_distribution <- ggplot(data = df_final, aes(x = SF)) +
   geom_density(color = "black", fill = "grey", alpha = .5) +
-  geom_rug() +
+  geom_rug(color = "black", alpha = .5) +
   theme_pubr() +
-  ylab("Density")+
+  ylab("Density") +
   xlab("Space Fortress score")
 
 # Combine the two plots into a single 1x2 plot
@@ -77,5 +84,5 @@ combined_plot <- ggarrange(SF_data_distribution, qqplot, ncol = 2, nrow = 1)
 print(combined_plot)
 
 # Save plot
-filename <- paste0(figure_path, "/SF_data_distribution.pdf")
+filename <- paste0(figure_path, "/Fig2_SF_data_distribution.pdf")
 ggsave(filename, plot = combined_plot, width = 10, height = 4, units = "in")

@@ -122,7 +122,7 @@ VG_SF <- ggplot(df_final, aes(x=VGexp, y=zscore_SF))+
 Demographics_SF <- plot_grid(VG_SF, EL_SF, age_SF, ncol = 3, nrow = 1)
 
 # Save plot
-filename <- paste0(figure_path, "/SF_demographics.pdf")
+filename <- paste0(figure_path, "/SuppFig2_SF_covariates.pdf")
 ggsave(filename, plot = Demographics_SF, width = 12, height = 4, units = "in")
 
 # SF & Sex

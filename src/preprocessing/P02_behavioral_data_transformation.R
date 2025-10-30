@@ -32,7 +32,6 @@ data_path <- file.path(project_dir, "results" , "combined_data") # Define the re
 # Load data
 file_path <- file.path(data_path, "data.csv")
 df_final <- read.csv(file_path)
-df_final <- df_final[df_final$Inclusion == 1, ]
 
 # Arcsine transform the data
 df_final$keeptrack_asin <- asin(sqrt(df_final$keeptrack / max(df_final$keeptrack)))
