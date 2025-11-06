@@ -78,10 +78,6 @@ print(excluded_table)
 
 
 
-
-
-
-
 ## PATH MANAGEMENT
 # Get the directory and path to this file
 this_file <- rstudioapi::getSourceEditorContext()$path  # if using RStudio

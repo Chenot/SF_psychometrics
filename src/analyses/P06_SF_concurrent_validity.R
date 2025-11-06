@@ -1,199 +1,215 @@
 ## P06_SF_concurrent_validity.R
 # Author: Quentin Chenot
-# Date: 2025-10-29
-# Description: This script tests hypotheses about relationships between Space Fortress performance and
-#              executive functions.
-# Dependencies: ggplot2, ggpubr, ggExtra, dplyr, cowplot, broom, xtable, reshape2, rstudioapi
-# Inputs: 
-#   - Processed dataframe with z-scores: 'results/combined_data/data_zscored.csv'
+# Date: 2025-11-06
+# Description: This script tests hypotheses about relationships between Space Fortress performance
+#              and executive functions.
+#
+# Research Questions:
+#   1. Is SF performance correlated with overall Executive Functions? (expected: positive)
+#   2. Is SF performance correlated with EF sub-components?
+#      - Inhibition (expected: positive)
+#      - Updating (expected: positive)
+#      - Shifting (expected: positive)
+#
+# Methodology:
+#   - Normality testing using Kolmogorov-Smirnov test (appropriate for n=145)
+#   - Pearson correlation (if both variables normal) or Spearman (if not)
+#
 # Outputs:
-#   - Correlation plots saved as:
-#     * 'results/figures/SF_EF.pdf'
-#     * 'results/figures/SF_EFsubscores.pdf'
-#   - Printed correlation statistics
+#   - Statistical results printed to console
+#   - SF vs EF composite plot: 'results/figures/Fig3_SF_EF.pdf'
+#   - SF vs EF subscores plot: 'results/figures/Fig4_SF_EFsubscores.pdf'
 
-## LOAD LIBRARIES
-# Function to check if each required package is installed, and install it if not
-required_packages <- c("ggplot2", "ggpubr", "ggExtra", "dplyr", "cowplot", 
-                      "broom", "xtable", "reshape2", "rstudioapi", "viridis")
-install_if_not_present <- function(package) {
-  if (!require(package, character.only = TRUE)) {
-    install.packages(package)
-  }
-}
-lapply(required_packages, install_if_not_present) # Apply the function to each required package
+################################################################################
+## SETUP
+################################################################################
 
-# Load the libraries
-library(ggplot2)
-library(ggpubr)
-library(ggExtra)
-library(dplyr)
-library(cowplot)
-library(broom)
-library(xtable)
-library(reshape2)
-library(rstudioapi)
+# Source utility functions
+source("utils.R")
 
-## PATH MANAGEMENT
-# Get the directory and path to this file
-this_file <- rstudioapi::getSourceEditorContext()$path  # if using RStudio
+# Load required packages
+required_packages <- c("ggplot2", "ggpubr", "dplyr", "cowplot", "rstudioapi")
+load_packages(required_packages)
+
+# Path management
+this_file <- rstudioapi::getSourceEditorContext()$path
 this_dir <- dirname(this_file)
 setwd(this_dir)
-project_dir <- dirname(dirname(this_dir)) # Get the project directory
+project_dir <- dirname(dirname(this_dir))
 
-# Data & Figure paths
-data_path <- file.path(project_dir, "data") # Define the relative path to the data files
-df_final <- read.csv(file.path(project_dir,"results", "combined_data", "data_zscored.csv"))
-figure_path <- file.path(project_dir, "results" , "figures") # Define the relative path to the data and results
+# Load data
+df_final <- load_data(project_dir, z_scored = TRUE)
 
-# Function for p value formating
-format_p_value <- function(p_value) {
-  if (p_value < .001) {
-    "p < .001"
-  } else {
-    formatted_p = sprintf("%.3f", p_value)  # Format with three decimal places
-    formatted_p = sub("^0\\.", ".", formatted_p)  # Remove leading zero for numbers less than 1
-    paste("p =", formatted_p)
-  }
-}
+# Create output directory
+figure_path <- file.path(project_dir, "results", "figures")
+dir.create(figure_path, recursive = TRUE, showWarnings = FALSE)
 
 ################################################################################
-############## Correlation between SF and EF composite score ###################
+## ANALYSIS 1: SF & EXECUTIVE FUNCTIONS (COMPOSITE SCORE)
 ################################################################################
-# Calculate correlation and format the p-value
-cor_test <- cor.test(df_final$zscore_SF, df_final$zscore_EF)
-r_value <- round(cor_test$estimate, 2)
-r_value_formatted <- sub("^0\\.", ".", r_value)
-r_squared <- round(r_value^2, 2)
-r_squared_formatted <- sub("^0\\.", ".", r_squared)
-cor_label <- paste("r =", r_value_formatted, ", R² =", r_squared_formatted, ",", format_p_value(cor_test$p.value))
 
-# Plot
-EF_SF <- ggplot(df_final, aes(y = zscore_SF, x = zscore_EF)) +
-  geom_point() +
-  geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE) +
-  annotate("text", x = -1, y = 2.5, label = cor_label, hjust = 0) +  # Add custom label
+print_section("ANALYSIS 1: Space Fortress & Executive Functions (Composite)")
+
+# 1) Test normality and perform correlation
+result_EF <- correlation_test(
+  df_final$zscore_SF, 
+  df_final$zscore_EF,
+  "Space Fortress (z-score)", 
+  "Executive Functions (z-score)"
+)
+
+# 2) Create correlation label
+cor_label_EF <- create_cor_label(result_EF)
+
+# 3) Create plot
+plot_EF <- ggplot(df_final, aes(x = zscore_EF, y = zscore_SF)) +
+  geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
+  geom_point(alpha = 0.8, size = 2, color = "black", shape = 16) +
+  annotate("text", x = -1, y = 2.5, label = cor_label_EF, hjust = 0, size = 3.5) +
   theme_pubr() +
   xlab("Executive Functions (z-score)") +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
-# Save plot
-filename <- paste0(figure_path, "/Fig3_SF_EF.pdf")
-ggsave(filename, plot = EF_SF, width = 5, height = 4, units = "in")
-
-
-################################################################################
-## Correlation between SF and EF sub-scores (inhibition, updating, switching) ##
-################################################################################
-
-# Updating
-cor_test_updating <- cor.test(df_final$zscore_SF, df_final$zscore_WM)
-r_value <- round(cor_test_updating$estimate, 2)
-r_value_formatted <- sub("^0\\.", ".", r_value)
-r_squared <- round(r_value^2, 2)
-r_squared_formatted <- sub("^0\\.", ".", r_squared)
-cor_label <- paste("r =", r_value_formatted, ", R² =", r_squared_formatted, ",", format_p_value(cor_test_updating$p.value))
-
-#Plot
-SF_updating <- ggplot(df_final, aes(y=zscore_SF, x=zscore_WM))+
-  geom_point()+
-  geom_smooth(method=lm , color="black", fill="lightgray", se=TRUE) +
-  annotate("text", x = -1.5, y = 2.5, label = cor_label, hjust = 0) +  # Add custom label
-  theme_pubr()+
-  xlab("Updating (z-score)")+
-  ylab("Space Fortress (z-score)")+
-  theme(plot.title = element_text(hjust = 0.1))
-
-# Switching
-cor_test_shifting <- cor.test(df_final$zscore_SF, df_final$zscore_shifting)
-r_value <- round(cor_test_shifting$estimate, 2)
-r_value_formatted <- sub("^0\\.", ".", r_value)
-r_squared <- round(r_value^2, 2)
-r_squared_formatted <- sub("^0\\.", ".", r_squared)
-cor_label <- paste("r =", r_value_formatted, ", R² =", r_squared_formatted, ",", format_p_value(cor_test_shifting$p.value))
-
-# Plot
-SF_shifting <- ggplot(df_final, aes(y=zscore_SF, x=zscore_shifting))+
-  geom_point()+
-  geom_smooth(method=lm , color="black", fill="lightgray", se=TRUE) +
-  annotate("text", x = -1.5, y = 2.5, label = cor_label, hjust = 0) +  # Add custom label
-  theme_pubr()+
-  xlab("Shifting (z-score)")+
-  ylab("Space Fortress (z-score)")+
-  theme(plot.title = element_text(hjust = 0.1))
-
-# Inhibition
-cor_test_inhibition <- cor.test(df_final$zscore_SF, df_final$zscore_inhibition)
-r_value <- round(cor_test_inhibition$estimate, 2)
-r_value_formatted <- sub("^0\\.", ".", r_value)
-r_squared <- round(r_value^2, 2)
-r_squared_formatted <- sub("^0\\.", ".", r_squared)
-cor_label <- paste("r =", r_value_formatted, ", R² =", r_squared_formatted, ",", format_p_value(cor_test_inhibition$p.value))
-
-#Plot
-SF_inhibition <- ggplot(df_final, aes(y=zscore_SF, x=zscore_inhibition))+
-  geom_point()+
-  geom_smooth(method=lm , color="black", fill="lightgray", se=TRUE) +
-  annotate("text", x = -1.5, y = 2.5, label = cor_label, hjust = 0) +  # Add custom label
-  theme_pubr()+
-  xlab("Inhibition (z-score)")+
-  ylab("Space Fortress (z-score)")+
-  theme(plot.title = element_text(hjust = 0.1))
-
-# Correlations results
-cor_test_updating
-cor_test_shifting
-cor_test_inhibition
-
-# Plot GRID with EF sub-scores
-EFsubscores_SF <- plot_grid(SF_inhibition,SF_updating,SF_shifting, ncol = 3, nrow = 1)
+print(plot_EF)
 
 # Save plot
-filename <- paste0(figure_path, "/Fig4_SF_EFsubscores.pdf")
-ggsave(filename, plot = EFsubscores_SF, width = 12, height = 4, units = "in")
+output_file_EF <- file.path(figure_path, "Fig3_SF_EF.pdf")
+ggsave(output_file_EF, plot = plot_EF, width = 5, height = 4, units = "in",
+       device = cairo_pdf)
+cat(sprintf("Plot saved to: %s\n\n", output_file_EF))
 
+################################################################################
+## ANALYSIS 2: SF & INHIBITION
+################################################################################
 
-# Function to format p-values correctly, ensuring correct display for very small values
-format_p_value2 <- function(p) {
-  if (p < 0.001) {
-    "$<$ .001"
-  } else {
-    sprintf("= %.3f", p)  # Keeping three decimal places for consistency
-  }
-}
+print_section("ANALYSIS 2: Space Fortress & Inhibition")
 
-# Function to calculate and format the 95% CI of a correlation coefficient
-format_ci <- function(cor_object) {
-  se <- sqrt((1 - cor_object$estimate^2) / (cor_object$parameter))
-  lower <- cor_object$estimate - qt(0.975, cor_object$parameter) * se
-  upper <- cor_object$estimate + qt(0.975, cor_object$parameter) * se
-  paste("[", round(lower, 2), ",", round(upper, 2), "]", sep = "")
-}
+# 1) Test normality and perform correlation
+result_inhibition <- correlation_test(
+  df_final$zscore_SF, 
+  df_final$zscore_inhibition,
+  "Space Fortress (z-score)", 
+  "Inhibition (z-score)"
+)
 
-# Format correlation results into a string
-format_correlation <- function(cor_test, hypothesis) {
-  r_value <- cor_test$estimate
-  p_value <- cor_test$p.value
-  r_squared <- r_value^2
-  ci <- format_ci(cor_test)
-  formatted_string <- paste("r =", sub("^0\\.", ".", format(r_value, digits = 2)),
-                            "(95\\% CI", ci, ", p", format_p_value2(p_value), 
-                            ", R² =", sub("^0\\.", ".", format(round(r_squared, 3), digits = 3)),
-                            ") for the", hypothesis)
-  formatted_string
-}
+# 2) Create correlation label
+cor_label_inhibition <- create_cor_label(result_inhibition)
 
-# Calculate formatted strings
-updating_result <- format_correlation(cor_test_updating, "updating")
-shifting_result <- format_correlation(cor_test_shifting, "shifting")
-inhibition_result <- format_correlation(cor_test_inhibition, "inhibition")
+# 3) Create plot
+plot_inhibition <- ggplot(df_final, aes(x = zscore_inhibition, y = zscore_SF)) +
+  geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
+  geom_point(alpha = 0.8, size = 2, color = "black", shape = 16) +
+  annotate("text", x = -1.5, y = 2.5, label = cor_label_inhibition, hjust = 0, size = 3.5) +
+  theme_pubr() +
+  xlab("Inhibition (z-score)") +
+  ylab("Space Fortress (z-score)") +
+  theme(plot.title = element_text(hjust = 0.1))
 
-# Create the paragraph
-paragraph <- paste("The correlations between the EF sub-scores and SF score were",
-                   updating_result, ";",
-                   shifting_result, ";",
-                   inhibition_result, ". These results are presented in the Figure \\ref{fig:EFsSFcorr}.")
+print(plot_inhibition)
 
-# Print the corrected paragraph
-print(paragraph)
+################################################################################
+## ANALYSIS 3: SF & UPDATING
+################################################################################
+
+print_section("ANALYSIS 3: Space Fortress & Updating")
+
+# 1) Test normality and perform correlation
+result_updating <- correlation_test(
+  df_final$zscore_SF, 
+  df_final$zscore_WM,
+  "Space Fortress (z-score)", 
+  "Updating (z-score)"
+)
+
+# 2) Create correlation label
+cor_label_updating <- create_cor_label(result_updating)
+
+# 3) Create plot
+plot_updating <- ggplot(df_final, aes(x = zscore_WM, y = zscore_SF)) +
+  geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
+  geom_point(alpha = 0.8, size = 2, color = "black", shape = 16) +
+  annotate("text", x = -1.5, y = 2.5, label = cor_label_updating, hjust = 0, size = 3.5) +
+  theme_pubr() +
+  xlab("Updating (z-score)") +
+  ylab("Space Fortress (z-score)") +
+  theme(plot.title = element_text(hjust = 0.1))
+
+print(plot_updating)
+
+################################################################################
+## ANALYSIS 4: SF & SHIFTING 
+################################################################################
+
+print_section("ANALYSIS 4: Space Fortress & Shifting")
+
+# 1) Test normality and perform correlation
+result_shifting <- correlation_test(
+  df_final$zscore_SF, 
+  df_final$zscore_shifting,
+  "Space Fortress (z-score)", 
+  "Shifting (z-score)"
+)
+
+# 2) Create correlation label
+cor_label_shifting <- create_cor_label(result_shifting)
+
+# 3) Create plot
+plot_shifting <- ggplot(df_final, aes(x = zscore_shifting, y = zscore_SF)) +
+  geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
+  geom_point(alpha = 0.8, size = 2, color = "black", shape = 16) +
+  annotate("text", x = -1.5, y = 2.5, label = cor_label_shifting, hjust = 0, size = 3.5) +
+  theme_pubr() +
+  xlab("Shifting (z-score)") +
+  ylab("Space Fortress (z-score)") +
+  theme(plot.title = element_text(hjust = 0.1))
+
+print(plot_shifting)
+
+################################################################################
+## CREATE AND SAVE COMBINED EF SUBSCORES FIGURE
+################################################################################
+
+print_section("Creating Combined EF Subscores Figure")
+
+# Combine all EF subscore plots into a 1x3 grid
+combined_plot_subscores <- plot_grid(
+  plot_inhibition, plot_updating, plot_shifting,
+  ncol = 3, nrow = 1,
+  labels = c("A", "B", "C"),
+  label_size = 14
+)
+
+print(combined_plot_subscores)
+
+# Save combined plot
+output_file_subscores <- file.path(figure_path, "Fig4_SF_EFsubscores.pdf")
+ggsave(output_file_subscores, plot = combined_plot_subscores, 
+       width = 12, height = 4, units = "in",
+       device = cairo_pdf)
+
+cat(sprintf("Combined subscores plot saved to: %s\n\n", output_file_subscores))
+
+################################################################################
+## GENERATE FORMATTED TEXT FOR MANUSCRIPT
+################################################################################
+
+print_section("Formatted Results for Manuscript")
+
+cat("Copy-paste the following text into your manuscript:\n\n")
+
+# Create formatted correlation text for each EF component
+text_inhibition <- format_correlation_text(result_inhibition, "inhibition")
+text_updating <- format_correlation_text(result_updating, "updating")
+text_shifting <- format_correlation_text(result_shifting, "shifting")
+
+# Create manuscript paragraph
+manuscript_text <- paste0(
+  "The correlations between the EF sub-scores and SF score were ",
+  text_updating, "; ",
+  text_shifting, "; ",
+  text_inhibition, ". ",
+  "These results are presented in Figure 4."
+)
+
+cat(manuscript_text, "\n\n")
