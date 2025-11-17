@@ -20,7 +20,7 @@ load_packages <- function(packages) {
       library(package, character.only = TRUE)
     }
   }
-  message(paste("Successfully loaded", length(packages), "packages"))
+  # message(paste("Successfully loaded", length(packages), "packages"))
 }
 
 ################################################################################
@@ -44,8 +44,8 @@ load_data <- function(project_dir, z_scored = TRUE) {
   }
   
   df <- read.csv(file_path)
-  message(paste("Loaded data from:", basename(file_path)))
-  message(paste("Sample size:", nrow(df), "participants"))
+  # message(paste("Loaded data from:", basename(file_path)))
+  # message(paste("Sample size:", nrow(df), "participants"))
   
   return(df)
 }
@@ -357,15 +357,15 @@ print_section <- function(title) {
 ## END OF UTILS.R
 ################################################################################
 
-message("\n=== utils.R loaded successfully ===")
-message("Available functions:")
-message("  - load_packages()")
-message("  - load_data()")
-message("  - format_p_value()")
-message("  - format_r()")
-message("  - ks_normality_test()")
-message("  - correlation_test()")
-message("  - create_cor_label()")
-message("  - create_ttest_label()")
-message("  - calculate_cohens_d()")
-message("  - print_section()")
+# message("\n=== utils.R loaded successfully ===")
+# message("Available functions:")
+# message("  - load_packages()")
+# message("  - load_data()")
+# message("  - format_p_value()")
+# message("  - format_r()")
+# message("  - ks_normality_test()")
+# message("  - test_normality_and_correlate()")
+# message("  - create_cor_label()")
+# message("  - create_ttest_label()")
+# message("  - calculate_cohens_d()")
+# message("  - print_section()")

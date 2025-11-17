@@ -1,4 +1,4 @@
-## P07_SF_covariates.R
+## 5_SF_covariates.R
 # Author: Quentin Chenot
 # Date: 2025-11-06
 # Description: This script analyzes relationships between Space Fortress performance and covariates
@@ -10,31 +10,33 @@
 #   4. Do men have higher SF scores than women? (tested with t-test)
 #
 # Methodology:
-#   - Normality testing using Kolmogorov-Smirnov test (appropriate for n=145)
+#   - Normality testing using Kolmogorov-Smirnov test
 #   - Pearson correlation (if both variables normal) or Spearman (if not)
 #   - Independent samples t-test for sex differences (with Cohen's d effect size)
 #
-# Outputs:
-#   - Statistical results printed to console
-#   - Individual plots for each covariate
-#   - Combined grid plot saved as 'results/figures/Fig5_SF_covariates.pdf'
+# Output:
+#   Returns a list with all covariate analysis results
 
 ################################################################################
 ## SETUP
 ################################################################################
 
+# Set working directory to script location
+if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable()) {
+  this_file <- rstudioapi::getSourceEditorContext()$path
+  this_dir <- dirname(this_file)
+  setwd(this_dir)
+}
+
 # Source utility functions
 source("utils.R")
 
 # Load required packages
-required_packages <- c("ggplot2", "ggpubr", "ggdist", "dplyr", "cowplot", "rstudioapi")
+required_packages <- c("ggplot2", "ggpubr", "ggdist", "dplyr", "cowplot")
 load_packages(required_packages)
 
 # Path management
-this_file <- rstudioapi::getSourceEditorContext()$path
-this_dir <- dirname(this_file)
-setwd(this_dir)
-project_dir <- dirname(dirname(this_dir))
+project_dir <- dirname(dirname(getwd()))
 
 # Load data
 df_final <- load_data(project_dir, z_scored = TRUE)
@@ -47,20 +49,16 @@ dir.create(figure_path, recursive = TRUE, showWarnings = FALSE)
 ## ANALYSIS 1: SF & VIDEO GAME EXPERIENCE
 ################################################################################
 
-print_section("ANALYSIS 1: Space Fortress & Video Game Experience")
-
-# 1) Test normality and perform correlation
-result_VGexp <- correlation_test(
+result_VGexp <- test_normality_and_correlate(
   df_final$zscore_SF, 
   df_final$VGexp,
   "Space Fortress (z-score)", 
-  "Video Game Experience"
+  "Video Game Experience",
+  print_results = FALSE
 )
 
-# 2) Create correlation label
 cor_label_VGexp <- create_cor_label(result_VGexp)
 
-# 3) Create plot
 plot_VGexp <- ggplot(df_final, aes(x = VGexp, y = zscore_SF)) +
   geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
   geom_point(alpha = 0.6, size = 2, color = "black", shape = 16) +
@@ -70,26 +68,20 @@ plot_VGexp <- ggplot(df_final, aes(x = VGexp, y = zscore_SF)) +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
-print(plot_VGexp)
-
 ################################################################################
 ## ANALYSIS 2: SF & EDUCATION LEVEL
 ################################################################################
 
-print_section("ANALYSIS 2: Space Fortress & Education Level")
-
-# 1) Test normality and perform correlation
-result_EL <- correlation_test(
+result_EL <- test_normality_and_correlate(
   df_final$zscore_SF, 
   df_final$EducationLevel,
   "Space Fortress (z-score)", 
-  "Education Level"
+  "Education Level",
+  print_results = FALSE
 )
 
-# 2) Create correlation label
 cor_label_EL <- create_cor_label(result_EL)
 
-# 3) Create plot
 plot_EL <- ggplot(df_final, aes(x = EducationLevel, y = zscore_SF)) +
   geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
   geom_point(alpha = 0.6, size = 2, color = "black", shape = 16) +
@@ -99,26 +91,20 @@ plot_EL <- ggplot(df_final, aes(x = EducationLevel, y = zscore_SF)) +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
-print(plot_EL)
-
 ################################################################################
 ## ANALYSIS 3: SF & AGE
 ################################################################################
 
-print_section("ANALYSIS 3: Space Fortress & Age")
-
-# 1) Test normality and perform correlation
-result_Age <- correlation_test(
+result_Age <- test_normality_and_correlate(
   df_final$zscore_SF, 
   df_final$Age,
   "Space Fortress (z-score)", 
-  "Age"
+  "Age",
+  print_results = FALSE
 )
 
-# 2) Create correlation label
 cor_label_Age <- create_cor_label(result_Age)
 
-# 3) Create plot
 plot_Age <- ggplot(df_final, aes(x = Age, y = zscore_SF)) +
   geom_smooth(method = lm, color = "black", fill = "lightgray", se = TRUE, alpha = 0.3) +
   geom_point(alpha = 0.6, size = 2, color = "black", shape = 16) +
@@ -128,18 +114,11 @@ plot_Age <- ggplot(df_final, aes(x = Age, y = zscore_SF)) +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
-print(plot_Age)
-
 ################################################################################
 ## ANALYSIS 4: SF & SEX
 ################################################################################
 
-print_section("ANALYSIS 4: Space Fortress & Sex")
-
-# 1) Perform t-test
-cat("\nIndependent Samples t-test:\n")
-cat(rep("-", 70), "\n", sep = "")
-
+# Perform t-test
 t_test_result <- t.test(zscore_SF ~ Sex, data = df_final)
 
 # Calculate descriptive statistics
@@ -148,12 +127,9 @@ mean_sd <- df_final %>%
   summarise(
     n = n(),
     mean_zscore_SF = mean(zscore_SF, na.rm = TRUE),
-    sd_zscore_SF = sd(zscore_SF, na.rm = TRUE)
+    sd_zscore_SF = sd(zscore_SF, na.rm = TRUE),
+    .groups = "drop"
   )
-
-# Print descriptive statistics
-cat("\nDescriptive Statistics:\n")
-print(mean_sd)
 
 # Calculate Cohen's d
 cohens_d <- calculate_cohens_d(
@@ -163,36 +139,12 @@ cohens_d <- calculate_cohens_d(
   mean_sd$sd_zscore_SF[2]
 )
 
-# Print t-test results
-cat("\nt-test Results:\n")
-cat(sprintf("  t(%d) = %.3f\n", t_test_result$parameter, t_test_result$statistic))
-cat(sprintf("  %s\n", format_p_value(t_test_result$p.value)))
-cat(sprintf("  Cohen's d = %.3f\n", abs(cohens_d)))
-cat(sprintf("  95%% CI: [%.3f, %.3f]\n", 
-            t_test_result$conf.int[1], t_test_result$conf.int[2]))
-
-# Interpret effect size
-if (abs(cohens_d) < 0.2) {
-  cat("  → Small effect size\n")
-} else if (abs(cohens_d) < 0.5) {
-  cat("  → Small to medium effect size\n")
-} else if (abs(cohens_d) < 0.8) {
-  cat("  → Medium to large effect size\n")
-} else {
-  cat("  → Large effect size\n")
-}
-
-cat(rep("-", 70), "\n\n", sep = "")
-
-# 2) Create test label
 test_label <- create_ttest_label(t_test_result, cohens_d)
 
-# 3) Create raincloud plot
-# Prepare numeric position for jittered points
+# Create raincloud plot
 df_final$Sex_numeric <- as.numeric(as.factor(df_final$Sex))
 
 plot_Sex <- ggplot(df_final, aes(x = Sex, y = zscore_SF, fill = Sex, color = Sex)) +
-  # Half-violin (distribution cloud)
   ggdist::stat_halfeye(
     width = 0.5,
     .width = 0,
@@ -200,13 +152,11 @@ plot_Sex <- ggplot(df_final, aes(x = Sex, y = zscore_SF, fill = Sex, color = Sex
     point_colour = NA,
     alpha = 0.5
   ) +
-  # Boxplot
   geom_boxplot(
     width = 0.15,
     outlier.shape = NA,
     alpha = 0.5
   ) +
-  # Jittered points (rain)
   geom_point(
     aes(x = Sex_numeric - 0.2),
     size = 1.5,
@@ -214,7 +164,6 @@ plot_Sex <- ggplot(df_final, aes(x = Sex, y = zscore_SF, fill = Sex, color = Sex
     shape = 16,
     position = position_jitter(width = 0.1, height = 0, seed = 123)
   ) +
-  # Add test results
   annotate("text", x = Inf, y = Inf, label = test_label, 
            hjust = 1.1, vjust = 1.5, size = 3.5) +
   theme_pubr() +
@@ -233,15 +182,10 @@ plot_Sex <- ggplot(df_final, aes(x = Sex, y = zscore_SF, fill = Sex, color = Sex
   ) +
   theme(legend.position = "none")
 
-print(plot_Sex)
-
 ################################################################################
-## CREATE AND SAVE COMBINED FIGURE
+## CREATE COMBINED FIGURE
 ################################################################################
 
-print_section("Creating Combined Figure")
-
-# Combine all plots into a 2x2 grid
 combined_plot <- plot_grid(
   plot_VGexp, plot_EL, plot_Age, plot_Sex,
   ncol = 2, nrow = 2,
@@ -249,13 +193,55 @@ combined_plot <- plot_grid(
   label_size = 14
 )
 
+# Save combined plot
 print(combined_plot)
-
-# Save combined plot with proper encoding for special characters
 output_file <- file.path(figure_path, "Fig5_SF_covariates.pdf")
 ggsave(output_file, plot = combined_plot, width = 10, height = 8, units = "in",
-       device = cairo_pdf) 
+       device = cairo_pdf)
 
+################################################################################
+## STORE RESULTS
+################################################################################
+
+covariates_results <- list(
+  # Video Game Experience
+  VGexp_method = result_VGexp$method,
+  VGexp_r = result_VGexp$cor_result$estimate,
+  VGexp_ci_lower = result_VGexp$cor_result$conf.int[1],
+  VGexp_ci_upper = result_VGexp$cor_result$conf.int[2],
+  VGexp_pvalue = result_VGexp$cor_result$p.value,
+  VGexp_n = result_VGexp$n,
+  
+  # Education Level
+  EL_method = result_EL$method,
+  EL_r = result_EL$cor_result$estimate,
+  EL_ci_lower = result_EL$cor_result$conf.int[1],
+  EL_ci_upper = result_EL$cor_result$conf.int[2],
+  EL_pvalue = result_EL$cor_result$p.value,
+  EL_n = result_EL$n,
+  
+  # Age
+  Age_method = result_Age$method,
+  Age_r = result_Age$cor_result$estimate,
+  Age_ci_lower = result_Age$cor_result$conf.int[1],
+  Age_ci_upper = result_Age$cor_result$conf.int[2],
+  Age_pvalue = result_Age$cor_result$p.value,
+  Age_n = result_Age$n,
+  
+  # Sex
+  sex_ttest = t_test_result,
+  sex_mean_sd = mean_sd,
+  sex_cohens_d = cohens_d,
+  sex_t = t_test_result$statistic,
+  sex_df = t_test_result$parameter,
+  sex_pvalue = t_test_result$p.value,
+  sex_ci_lower = t_test_result$conf.int[1],
+  sex_ci_upper = t_test_result$conf.int[2],
+  
+  # Figure path
+  combined_plot_path = output_file
+)
+
+# Print confirmation
+cat("Covariates analysis completed.\n")
 cat(sprintf("Combined plot saved to: %s\n", output_file))
-
-
