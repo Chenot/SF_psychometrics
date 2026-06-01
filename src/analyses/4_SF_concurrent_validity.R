@@ -159,6 +159,7 @@ combined_plot_subscores <- plot_grid(
 )
 
 # Save combined plot
+print(combined_plot_subscores)
 output_file_subscores <- file.path(figure_path, "Fig4_SF_EFsubscores.pdf")
 ggsave(output_file_subscores, plot = combined_plot_subscores, 
        width = 12, height = 4, units = "in",

@@ -27,6 +27,7 @@ source("3_SF_reliability.R")
 source("4_SF_concurrent_validity.R")
 source("5_SF_covariates.R")
 source("6_SF_RegressionModel.R")
+source("6b_SF_RegressionModel_EFcomponents.R")
 
 ################################################################################
 ## DEMOGRAPHICS
@@ -358,6 +359,84 @@ cat(sprintf("R²:   M = %.4f, SD = %.4f\n", reg$cv_r2_mean, reg$cv_r2_sd))
 cat(sprintf("MAE:  M = %.4f, SD = %.4f\n\n", reg$cv_mae_mean, reg$cv_mae_sd))
 
 ################################################################################
+## REGRESSION MODEL (EF SUBCOMPONENTS)
+################################################################################
+
+print_section("REGRESSION MODEL (EF SUBCOMPONENTS)")
+
+reg_ef <- regression_results_ef_components
+
+cat("Model Formula:\n")
+cat("  zscore_SF ~ zscore_inhibition + zscore_WM + zscore_shifting + Age + EducationLevel + VGexp + Sex\n\n")
+
+cat("Sample Information:\n")
+cat(rep("-", 70), "\n", sep = "")
+cat(sprintf("Total cases:    %d\n", reg_ef$n_total))
+cat(sprintf("Complete cases: %d\n", reg_ef$n_complete))
+cat(sprintf("Missing cases:  %d\n\n", reg_ef$n_missing))
+
+cat("Model Statistics:\n")
+cat(rep("-", 70), "\n", sep = "")
+cat(sprintf("R²:             %.3f\n", reg_ef$r_squared))
+cat(sprintf("Adjusted R²:    %.3f\n", reg_ef$adj_r_squared))
+cat(sprintf("Residual SE:    %.3f\n", reg_ef$residual_se))
+cat(sprintf("F(%d, %d):      %.3f\n", reg_ef$f_df1, reg_ef$f_df2, reg_ef$f_value))
+cat(sprintf("p-value:        %s\n\n", format_p_value(reg_ef$f_pvalue)))
+
+cat("Model Coefficients:\n")
+cat(rep("-", 70), "\n", sep = "")
+cat(sprintf("%-20s %8s %8s %8s %20s %10s\n",
+            "Predictor", "β", "SE", "t", "95% CI", "p-value"))
+cat(rep("-", 70), "\n", sep = "")
+for (i in seq_len(nrow(reg_ef$coef_table))) {
+  cat(sprintf("%-20s %8.3f %8.3f %8.3f [%6.3f, %6.3f] %10s\n",
+              reg_ef$coef_table$term[i],
+              reg_ef$coef_table$estimate[i],
+              reg_ef$coef_table$std.error[i],
+              reg_ef$coef_table$statistic[i],
+              reg_ef$coef_table$conf.low[i],
+              reg_ef$coef_table$conf.high[i],
+              format_p_value(reg_ef$coef_table$p.value[i])))
+}
+
+cat("\nEF Component Intercorrelations:\n")
+cat(rep("-", 70), "\n", sep = "")
+print(round(reg_ef$ef_cor_matrix, 3))
+
+cat("\nCollinearity Diagnostics:\n")
+cat(rep("-", 70), "\n", sep = "")
+print(reg_ef$vif_table)
+
+cat("\nType-II ANOVA:\n")
+cat(rep("-", 70), "\n", sep = "")
+print(reg_ef$type2_table)
+
+cat("\nJoint EF Test (all EF slopes = 0):\n")
+cat(rep("-", 70), "\n", sep = "")
+print(reg_ef$ef_joint_test)
+
+cat("\nModel Assumptions:\n")
+cat(rep("-", 70), "\n", sep = "")
+cat(sprintf("Independence (DW):     %s (DW = %.3f, %s)\n",
+            ifelse(reg_ef$dw_met, "✓ Met", "✗ Violated"),
+            reg_ef$dw_statistic,
+            format_p_value(reg_ef$dw_pvalue)))
+cat(sprintf("Homoscedasticity (BP): %s (BP = %.3f, %s)\n",
+            ifelse(reg_ef$bp_met, "✓ Met", "✗ Violated"),
+            reg_ef$bp_statistic,
+            format_p_value(reg_ef$bp_pvalue)))
+cat(sprintf("Normality (KS):        %s (KS = %.3f, %s)\n",
+            ifelse(reg_ef$ks_met, "✓ Met", "✗ Violated"),
+            reg_ef$ks_statistic,
+            format_p_value(reg_ef$ks_pvalue)))
+
+cat("\nCross-Validation Results (10-fold):\n")
+cat(rep("-", 70), "\n", sep = "")
+cat(sprintf("RMSE: M = %.4f, SD = %.4f\n", reg_ef$cv_rmse_mean, reg_ef$cv_rmse_sd))
+cat(sprintf("R²:   M = %.4f, SD = %.4f\n", reg_ef$cv_r2_mean, reg_ef$cv_r2_sd))
+cat(sprintf("MAE:  M = %.4f, SD = %.4f\n\n", reg_ef$cv_mae_mean, reg_ef$cv_mae_sd))
+
+################################################################################
 ## FORMATTED OUTPUT FOR MANUSCRIPT
 ################################################################################
 
@@ -372,14 +451,12 @@ n_women <- sex_counts$n[sex_counts$Sex == "woman"]
 pct_women <- sex_counts$Percentage[sex_counts$Sex == "woman"]
 
 demographics_text <- sprintf(
-  "The sample consisted of %d participants (%d men, %d women; %.1f%% women) aged %d to %d years (M = %.1f, SD = %.1f). Education level ranged from %d to %d years (M = %.1f, SD = %.1f), and video game experience ranged from %.0f to %.0f years (M = %.1f, SD = %.1f). Most participants were right-handed (%d/%d, %.1f%%).",
+  "The final sample consists of %d participants (%d men, %d women; %.1f%% women) aged %d to %d years (M = %.1f, SD = %.1f). Education level ranged from %d to %d years (M = %.1f, SD = %.1f). Most participants were right-handed (%d/%d, %.1f%%).",
   demographics_results$n_total, n_men, n_women, pct_women,
   as.integer(stats$MinAge), as.integer(stats$MaxAge),
   stats$MeanAge, stats$SdAge,
   as.integer(stats$MinEL), as.integer(stats$MaxEL),
   stats$MeanEL, stats$SdEL,
-  stats$MinVGexp, stats$MaxVGexp,
-  stats$MeanVGexp, stats$SdVGexp,
   handedness_counts$n[handedness_counts$Handedness == "right-handed"],
   demographics_results$n_total,
   handedness_counts$Percentage[handedness_counts$Handedness == "right-handed"]
@@ -391,20 +468,38 @@ cat("\n\n")
 cat("=== SPACE FORTRESS DISTRIBUTION ===\n\n")
 cat(rep("-", 70), "\n", sep = "")
 
+# Determine skewness description
+skew_desc <- if (abs(dist$skewness) < 0.5) {
+  sprintf("a slight %s skew (%.2f skewness)", 
+          ifelse(dist$skewness < 0, "leftward", "rightward"),
+          dist$skewness)
+} else if (abs(dist$skewness) < 1) {
+  sprintf("moderate %s skew (%.2f skewness)",
+          ifelse(dist$skewness < 0, "leftward", "rightward"),
+          dist$skewness)
+} else {
+  sprintf("high %s skew (%.2f skewness)",
+          ifelse(dist$skewness < 0, "leftward", "rightward"),
+          dist$skewness)
+}
+
+# Determine kurtosis description
+kurt_desc <- if (abs(dist$kurtosis) < 0.5) {
+  sprintf("a distribution close to normal (%.2f kurtosis)", dist$kurtosis)
+} else if (dist$kurtosis < 0) {
+  sprintf("a distribution slightly flatter than normal (%.2f kurtosis)", dist$kurtosis)
+} else {
+  sprintf("a distribution slightly more peaked than normal (%.2f kurtosis)", dist$kurtosis)
+}
+
 distribution_text <- sprintf(
-  "Space Fortress scores ranged from %.0f to %.0f (M = %.1f, SD = %.1f, n = %d). The distribution showed %s (skewness = %.2f) and %s (kurtosis = %.2f). A Kolmogorov-Smirnov test indicated that the data %s (D = %.3f, %s), %s for parametric statistical analyses (see Figure 2).",
-  dist$min, dist$max, dist$mean, dist$sd, dist$n,
-  ifelse(abs(dist$skewness) < 0.5, "minimal skewness", 
-         ifelse(abs(dist$skewness) < 1, "moderate skewness", "high skewness")),
-  dist$skewness,
-  ifelse(abs(dist$kurtosis) < 0.5, "normal kurtosis", 
-         ifelse(abs(dist$kurtosis) < 2, "moderate kurtosis", "high kurtosis")),
-  dist$kurtosis,
-  ifelse(dist$ks_pvalue > 0.05, "were normally distributed", "deviated from normality"),
+  "SF raw scores ranged from %.0f to %.0f (M = %.1f, SD = %.1f, Figure \\ref{fig:SFdatadistribution}). The distribution showed %s and %s. The Kolmogorov-Smirnov test revealed %s (D = %.2f, p = %.2f) with a normal distribution. Considering thresholds of [-1, 1] for skewness and [-2, 2] for kurtosis \\citep{west1995structural}, the SF score distribution can be considered as following normal distribution.",
+  dist$min, dist$max, dist$mean, dist$sd,
+  skew_desc,
+  kurt_desc,
+  ifelse(dist$ks_pvalue > 0.05, "no significant difference", "a significant difference"),
   dist$ks_statistic,
-  format_p_value(dist$ks_pvalue),
-  ifelse(dist$ks_pvalue > 0.05, "supporting the use of parametric tests", 
-         "suggesting consideration of non-parametric approaches")
+  dist$ks_pvalue
 )
 
 cat(strwrap(distribution_text, width = 70), sep = "\n")
@@ -414,12 +509,14 @@ cat("=== RELIABILITY ===\n\n")
 cat(rep("-", 70), "\n", sep = "")
 
 reliability_text <- sprintf(
-  "Test-retest reliability was assessed using the intraclass correlation coefficient (ICC) with a two-way random effects model (ICC(2,k); Koo & Li, 2016). Reliability was calculated for both single measurements, ICC(2,1) = %.2f, 95%% CI [%.2f, %.2f], and the average of five game sessions, ICC(2,k) = %.2f, 95%% CI [%.2f, %.2f]. Both ICCs indicated %s and %s, respectively, demonstrating that Space Fortress performance is a reliable measure with %s consistency across sessions.",
-  rel$icc_single_value, rel$icc_single_lbound, rel$icc_single_ubound,
-  rel$icc_average_value, rel$icc_average_lbound, rel$icc_average_ubound,
-  tolower(rel$interpretation_single),
-  tolower(rel$interpretation_average),
-  ifelse(rel$icc_average_value >= 0.75, "good to excellent", "acceptable")
+  "The ICC for SF scores over five runs in a single session are highlighted in Table \\ref{tab:icc_results}. For reference, \\cite{koo2016guideline} defined that \"\\textit{values less than .5 are indicative of poor reliability, values between .5 and .75 indicate moderate reliability, values between .75 and .9 indicate good reliability, and values greater than .90 indicate excellent reliability}\". Therefore, the ICC obtained here (%.2f for single measures, to %.2f for the average, both p $<$ .001) and tight confidence intervals (CI 95%% [%.2f, %.2f]) fall within the %s.",
+  rel$icc_single_value,
+  rel$icc_average_value,
+  rel$icc_single_lbound,
+  rel$icc_average_ubound,
+  ifelse(rel$icc_single_value >= 0.75 && rel$icc_average_value >= 0.90, 
+         "good to excellent reliability",
+         ifelse(rel$icc_average_value >= 0.75, "good reliability", "moderate to good reliability"))
 )
 
 cat(strwrap(reliability_text, width = 70), sep = "\n")
@@ -446,7 +543,7 @@ concurrent_validity_text <- sprintf(
 cat(strwrap(concurrent_validity_text, width = 70), sep = "\n")
 cat("\n", rep("-", 70), "\n\n", sep = "")
 
-cat("=== SF & COVARIATES ===\n\n")
+cat("=== SPACE FORTRESS RELATIONSHIP WITH POTENTIAL COVARIATES ===\n\n")
 cat(rep("-", 70), "\n", sep = "")
 
 covariates_text <- sprintf(
@@ -470,37 +567,237 @@ covariates_text <- sprintf(
 cat(strwrap(covariates_text, width = 70), sep = "\n")
 cat("\n\n")
 
-cat("=== REGRESSION MODEL ===\n\n")
+cat("=== EXPLORATORY ANALYSES: REGRESSION MODEL ===\n\n")
 cat(rep("-", 70), "\n", sep = "")
 
-# Identify significant predictors
+# Get significant predictors (excluding intercept)
 sig_predictors <- reg$coef_table[reg$coef_table$p.value < 0.05 & reg$coef_table$term != "(Intercept)", ]
+non_sig_predictors <- reg$coef_table[reg$coef_table$p.value >= 0.05 & reg$coef_table$term != "(Intercept)", ]
+
+# Format significant predictors text
+if (nrow(sig_predictors) > 0) {
+  sig_text <- paste(sapply(1:nrow(sig_predictors), function(i) {
+    term_name <- sig_predictors$term[i]
+    # Clean up term names for display
+    display_name <- switch(term_name,
+                          "zscore_EF" = "EF composite score",
+                          "Age" = "age",
+                          "EducationLevel" = "education level",
+                          "VGexp" = "video game experience",
+                          "Sexwoman" = "sex",
+                          term_name)
+    
+    # Add interpretation for specific predictors
+    interpretation <- ""
+    if (term_name == "zscore_EF") {
+      interpretation <- ", with higher EF scores associated with better SF performance"
+    } else if (term_name == "Sexwoman") {
+      interpretation <- ", with women performing lower on average than men"
+    }
+    
+    sprintf("%s ($\\beta$ = %.2f, SE = %.2f, t = %.2f, p %s)%s",
+            display_name,
+            sig_predictors$estimate[i],
+            sig_predictors$std.error[i],
+            sig_predictors$statistic[i],
+            ifelse(sig_predictors$p.value[i] < 0.001, "$<$ .001",
+                   sprintf("= %.3f", sig_predictors$p.value[i])),
+            interpretation)
+  }), collapse = " and ")
+  
+  sig_text <- paste0("both ", sig_text)
+} else {
+  sig_text <- "no predictors"
+}
+
+# Format non-significant predictors text
+if (nrow(non_sig_predictors) > 0) {
+  non_sig_text <- paste(sapply(1:nrow(non_sig_predictors), function(i) {
+    term_name <- non_sig_predictors$term[i]
+    display_name <- switch(term_name,
+                          "zscore_EF" = "EF composite score",
+                          "Age" = "age",
+                          "EducationLevel" = "education level",
+                          "VGexp" = "video game experience",
+                          "Sexwoman" = "sex",
+                          term_name)
+    
+    sprintf("%s (p = %.3f)", display_name, non_sig_predictors$p.value[i])
+  }), collapse = ", ")
+  
+  # Add proper grammar
+  if (nrow(non_sig_predictors) == 1) {
+    non_sig_clause <- sprintf(" %s was not a significant predictor.", non_sig_text)
+  } else {
+    # Replace last comma with "and"
+    parts <- strsplit(non_sig_text, ", ")[[1]]
+    if (length(parts) > 1) {
+      non_sig_text <- paste(c(parts[1:(length(parts)-1)], 
+                             paste("and", parts[length(parts)])), 
+                           collapse = ", ")
+    }
+    non_sig_clause <- sprintf(" %s were not significant predictors.", non_sig_text)
+  }
+} else {
+  non_sig_clause <- ""
+}
 
 regression_text <- sprintf(
-  "A multiple linear regression model was fitted to predict Space Fortress performance from executive functions and demographic covariates (age, education, video game experience, sex). The overall model was %s (F(%d, %d) = %.2f, %s, R² = %.3f, adjusted R² = %.3f). %s All four assumptions of linear regression were met: independence (Durbin-Watson = %.2f, %s), homoscedasticity (Breusch-Pagan = %.2f, %s), normality of residuals (Kolmogorov-Smirnov = %.3f, %s), and linearity (visual inspection). Ten-fold cross-validation confirmed model stability (mean R² = %.3f, SD = %.3f).",
-  ifelse(reg$f_pvalue < 0.05, "significant", "not significant"),
-  reg$f_df1, reg$f_df2, reg$f_value, format_p_value(reg$f_pvalue),
-  reg$r_squared, reg$adj_r_squared,
+  "The regression model was significant, F(%d, %d) = %.2f, p %s, and explained %.1f%%%% of the variance in SF performance (R$^2$ = %.3f, adjusted R$^2$ = %.3f).\n\nAmong the predictors, %s significantly predicted SF performance%s.%s\n\nModel assumptions were verified and met: The \\textit{Durbin--Watson test} indicated %s of residuals (DW = %.2f, p = %.2f), the Breusch--Pagan test showed %s (BP = %.2f, p = %.2f), and residuals were %s according to the Kolmogorov-Smirnov test (D = %.2f, p = %.2f). Together, these results support the adequacy of the linear model for the data.\n\nTo assess the robustness and generalizability of the linear model, a 10-fold cross-validation was conducted following standard procedures \\citep{kohavi1995study,yarkoni2017choosing}. The mean root mean squared error (RMSE) across folds was %.2f (SD = %.2f), and the mean cross-validated coefficient of determination was $R^2_{\\text{CV}}$ = %.2f (SD = %.2f). This value represents the proportion of variance in SF performance explained by the model when predicting unseen data, reflecting its out-of-sample predictive accuracy.",
+  # Model statistics
+  reg$f_df1,
+  reg$f_df2,
+  reg$f_value,
+  ifelse(reg$f_pvalue < 0.001, "$<$ .001", sprintf("= %.3f", reg$f_pvalue)),
+  reg$r_squared * 100,
+  reg$r_squared,
+  reg$adj_r_squared,
   
-  if (nrow(sig_predictors) > 0) {
-    paste0("Significant predictors included: ",
-           paste(sapply(1:nrow(sig_predictors), function(i) {
-             sprintf("%s (β = %.2f, %s)",
-                     sig_predictors$term[i],
-                     sig_predictors$estimate[i],
-                     format_p_value(sig_predictors$p.value[i]))
-           }), collapse = ", "), ".")
-  } else {
-    "No predictors reached statistical significance."
-  },
+  # Significant predictors
+  sig_text,
+  ifelse(nrow(sig_predictors) > 0, 
+         ifelse(grepl("with", sig_text), "", ""),
+         ""),
+  non_sig_clause,
   
-  reg$dw_statistic, format_p_value(reg$dw_pvalue),
-  reg$bp_statistic, format_p_value(reg$bp_pvalue),
-  reg$ks_statistic, format_p_value(reg$ks_pvalue),
-  reg$cv_r2_mean, reg$cv_r2_sd
+  # Model assumptions
+  ifelse(reg$dw_met, "no autocorrelation", "autocorrelation"),
+  reg$dw_statistic,
+  reg$dw_pvalue,
+  ifelse(reg$bp_met, "no evidence of heteroscedasticity", "evidence of heteroscedasticity"),
+  reg$bp_statistic,
+  reg$bp_pvalue,
+  ifelse(reg$ks_met, "normally distributed", "not normally distributed"),
+  reg$ks_statistic,
+  reg$ks_pvalue,
+  
+  # Cross-validation
+  reg$cv_rmse_mean,
+  reg$cv_rmse_sd,
+  reg$cv_r2_mean,
+  reg$cv_r2_sd
 )
 
-cat(strwrap(regression_text, width = 70), sep = "\n")
+cat(regression_text)
+cat("\n", rep("-", 70), "\n\n", sep = "")
+
+cat("=== SUPPLEMENTARY ANALYSES: REGRESSION MODEL WITH EF SUBCOMPONENTS ===\n\n")
+cat(rep("-", 70), "\n", sep = "")
+
+# Get significant predictors (excluding intercept)
+sig_predictors_ef <- reg_ef$coef_table[
+  reg_ef$coef_table$p.value < 0.05 & reg_ef$coef_table$term != "(Intercept)",
+]
+non_sig_predictors_ef <- reg_ef$coef_table[
+  reg_ef$coef_table$p.value >= 0.05 & reg_ef$coef_table$term != "(Intercept)",
+]
+
+# Format significant predictors text
+if (nrow(sig_predictors_ef) > 0) {
+  sig_text_ef <- paste(sapply(seq_len(nrow(sig_predictors_ef)), function(i) {
+    term_name <- sig_predictors_ef$term[i]
+    display_name <- switch(term_name,
+                           "zscore_inhibition" = "inhibition",
+                           "zscore_WM" = "updating",
+                           "zscore_shifting" = "shifting",
+                           "Age" = "age",
+                           "EducationLevel" = "education level",
+                           "VGexp" = "video game experience",
+                           "Sexwoman" = "sex",
+                           term_name)
+
+    interpretation <- ""
+    if (term_name == "Sexwoman") {
+      interpretation <- ", with women performing lower on average than men"
+    }
+
+    sprintf("%s ($\\beta$ = %.2f, SE = %.2f, t = %.2f, p %s)%s",
+            display_name,
+            sig_predictors_ef$estimate[i],
+            sig_predictors_ef$std.error[i],
+            sig_predictors_ef$statistic[i],
+            ifelse(sig_predictors_ef$p.value[i] < 0.001, "$<$ .001",
+                   sprintf("= %.3f", sig_predictors_ef$p.value[i])),
+            interpretation)
+  }), collapse = " and ")
+
+  sig_text_ef <- paste0("", sig_text_ef)
+} else {
+  sig_text_ef <- "no predictors"
+}
+
+# Format non-significant predictors text
+if (nrow(non_sig_predictors_ef) > 0) {
+  non_sig_text_ef <- paste(sapply(seq_len(nrow(non_sig_predictors_ef)), function(i) {
+    term_name <- non_sig_predictors_ef$term[i]
+    display_name <- switch(term_name,
+                           "zscore_inhibition" = "inhibition",
+                           "zscore_WM" = "updating",
+                           "zscore_shifting" = "shifting",
+                           "Age" = "age",
+                           "EducationLevel" = "education level",
+                           "VGexp" = "video game experience",
+                           "Sexwoman" = "sex",
+                           term_name)
+
+    sprintf("%s (p = %.3f)", display_name, non_sig_predictors_ef$p.value[i])
+  }), collapse = ", ")
+
+  if (nrow(non_sig_predictors_ef) == 1) {
+    non_sig_clause_ef <- sprintf(" %s was not a significant predictor.", non_sig_text_ef)
+  } else {
+    parts <- strsplit(non_sig_text_ef, ", ")[[1]]
+    if (length(parts) > 1) {
+      non_sig_text_ef <- paste(c(parts[1:(length(parts) - 1)],
+                                 paste("and", parts[length(parts)])),
+                               collapse = ", ")
+    }
+    non_sig_clause_ef <- sprintf(" %s were not significant predictors.", non_sig_text_ef)
+  }
+} else {
+  non_sig_clause_ef <- ""
+}
+
+# Joint EF block test
+ef_joint_df_num <- reg_ef$ef_joint_test$Df[2]
+ef_joint_df_den <- reg_ef$ef_joint_test$Res.Df[2]
+ef_joint_f <- reg_ef$ef_joint_test$F[2]
+ef_joint_p <- reg_ef$ef_joint_test$`Pr(>F)`[2]
+
+regression_text_ef <- sprintf(
+  "The multiple regression model including the 3 EF subcomponents (inhibition, updating, and shifting) and demographic covariates showed significance, F(%d, %d) = %.2f, p %s. The selected variables explained %.1f%%%% of the variance in SF performance (R$^2$ = %.3f, adjusted R$^2$ = %.3f).\n\nAmong the predictors, %s significantly predicted SF performance.%s\n\nA joint test of the three EF subcomponents indicated %s, F(%d, %d) = %.2f, p %s.\n\nModel assumptions were verified and met: The \\textit{Durbin--Watson test} indicated %s of residuals (DW = %.2f, p = %.2f), the Breusch--Pagan test showed %s (BP = %.2f, p = %.2f), and residuals were %s according to the Kolmogorov-Smirnov test (D = %.2f, p = %.2f). Together, these results support the adequacy of the linear model for the data.\n\nTo assess the robustness and generalizability of the model, a 10-fold cross-validation was conducted following standard procedures \\citep{kohavi1995study,yarkoni2017choosing}. The mean root mean squared error (RMSE) across folds was %.2f (SD = %.2f), and the mean cross-validated coefficient of determination was $R^2_{\\text{CV}}$ = %.2f (SD = %.2f).",
+  reg_ef$f_df1,
+  reg_ef$f_df2,
+  reg_ef$f_value,
+  ifelse(reg_ef$f_pvalue < 0.001, "$<$ .001", sprintf("= %.3f", reg_ef$f_pvalue)),
+  reg_ef$r_squared * 100,
+  reg_ef$r_squared,
+  reg_ef$adj_r_squared,
+  sig_text_ef,
+  non_sig_clause_ef,
+  ifelse(ef_joint_p < 0.05,
+         "that EF subcomponents jointly explained significant unique variance",
+         "no significant joint contribution of EF subcomponents"),
+  ef_joint_df_num,
+  ef_joint_df_den,
+  ef_joint_f,
+  ifelse(ef_joint_p < 0.001, "$<$ .001", sprintf("= %.3f", ef_joint_p)),
+  ifelse(reg_ef$dw_met, "no autocorrelation", "autocorrelation"),
+  reg_ef$dw_statistic,
+  reg_ef$dw_pvalue,
+  ifelse(reg_ef$bp_met, "no evidence of heteroscedasticity", "evidence of heteroscedasticity"),
+  reg_ef$bp_statistic,
+  reg_ef$bp_pvalue,
+  ifelse(reg_ef$ks_met, "normally distributed", "not normally distributed"),
+  reg_ef$ks_statistic,
+  reg_ef$ks_pvalue,
+  reg_ef$cv_rmse_mean,
+  reg_ef$cv_rmse_sd,
+  reg_ef$cv_r2_mean,
+  reg_ef$cv_r2_sd
+)
+
+cat(regression_text_ef)
 cat("\n", rep("-", 70), "\n\n", sep = "")
 
 ################################################################################
@@ -653,6 +950,52 @@ cat("\\bottomrule\n")
 cat("\\end{tabular}\n")
 cat("\\end{table}\n\n")
 
+cat("=== TABLE 5: REGRESSION MODEL 2 (EF SUBCOMPONENTS + COVARIATES) ===\n\n")
+cat("\\begin{table}[h!]\n")
+cat("\\centering\n")
+cat("\\caption{Results of the regression model 2 (updating, inhibition, shifting EF scores and covariates).}\n")
+cat("\\label{tab:GLM}\n")
+cat("\\centering\n")
+cat("\\begin{tabular}{lccccc}\n")
+cat("\\toprule\n")
+cat("Variable & $\\beta$ & 95\\% CI & SE & t-value & p-value \\\\ \\midrule\n")
+
+coef_table_ef <- reg_ef$coef_table
+
+for (i in seq_len(nrow(coef_table_ef))) {
+  term_name <- coef_table_ef$term[i]
+  display_name <- switch(term_name,
+                         "(Intercept)" = "Intercept",
+                         "zscore_inhibition" = "Inhibition",
+                         "zscore_WM" = "Updating",
+                         "zscore_shifting" = "Shifting",
+                         "Age" = "Age",
+                         "EducationLevel" = "Education Level",
+                         "VGexp" = "VGexp",
+                         "Sexwoman" = "Sex",
+                         term_name)
+
+  p_txt <- ifelse(coef_table_ef$p.value[i] < 0.001,
+                  "\\textbf{$<$ .001}",
+                  ifelse(coef_table_ef$p.value[i] < 0.05,
+                         sprintf("\\textbf{%.3f}", coef_table_ef$p.value[i]),
+                         sprintf("%.3f", coef_table_ef$p.value[i])))
+
+  cat(sprintf("%s & %.2f & [%.2f, %.2f] & %.2f & %.2f & %s \\\\n",
+              display_name,
+              coef_table_ef$estimate[i],
+              coef_table_ef$conf.low[i],
+              coef_table_ef$conf.high[i],
+              coef_table_ef$std.error[i],
+              coef_table_ef$statistic[i],
+              p_txt))
+}
+
+cat("\\bottomrule\n")
+cat("\\end{tabular}\n")
+cat("\\\\ \\textit{VGexp: video game experience questionnaire score. Bold: p $<$ .05}\n")
+cat("\\end{table}\n\n")
+
 cat("=== TABLE : REGRESSION MODEL ===\n\n")
 cat("\\begin{table}[h!]\n")
 cat("\\centering\n")
@@ -737,6 +1080,7 @@ cat(sprintf("  Plots: %s\n\n", dirname(cv$EF_plot_path)))
 cat("SF & COVARIATES:\n")
 cat(sprintf("  VG Experience: %s = %.2f, %s\n",
             ifelse(cov$VGexp_method == "pearson", "r", "ρ"),
+            
             cov$VGexp_r, format_p_value(cov$VGexp_pvalue)))
 cat(sprintf("  Education:     %s = %.2f, %s\n",
             ifelse(cov$EL_method == "pearson", "r", "ρ"),
@@ -761,23 +1105,22 @@ cat(sprintf("  Assumptions: DW %s, BP %s, KS %s\n",
             ifelse(reg$ks_met, "✓", "✗")))
 cat(sprintf("  Cross-validation R²: %.3f (±%.3f)\n", reg$cv_r2_mean, reg$cv_r2_sd))
 
+cat("\nREGRESSION MODEL (EF SUBCOMPONENTS):\n")
+cat(sprintf("  R² = %.3f, Adjusted R² = %.3f\n", reg_ef$r_squared, reg_ef$adj_r_squared))
+cat(sprintf("  F(%d, %d) = %.2f, %s\n", reg_ef$f_df1, reg_ef$f_df2, reg_ef$f_value,
+            format_p_value(reg_ef$f_pvalue)))
+cat(sprintf("  Significant predictors: %d/%d\n",
+            sum(reg_ef$coef_table$p.value < 0.05 & reg_ef$coef_table$term != "(Intercept)"),
+            nrow(reg_ef$coef_table) - 1))
+cat(sprintf("  Joint EF test: %s\n",
+            format_p_value(reg_ef$ef_joint_test$`Pr(>F)`[2])))
+cat(sprintf("  Assumptions: DW %s, BP %s, KS %s\n",
+            ifelse(reg_ef$dw_met, "✓", "✗"),
+            ifelse(reg_ef$bp_met, "✓", "✗"),
+            ifelse(reg_ef$ks_met, "✓", "✗")))
+cat(sprintf("  Cross-validation R²: %.3f (±%.3f)\n", reg_ef$cv_r2_mean, reg_ef$cv_r2_sd))
+
 cat("\n")
 cat(rep("=", 80), "\n", sep = "")
 cat("All analyses complete!\n")
 cat(rep("=", 80), "\n\n", sep = "")
-
-################################################################################
-## STORE FORMATTED RESULTS FOR EASY ACCESS
-################################################################################
-
-formatted_results <- list(
-  demographics = demographics_text,
-  distribution = distribution_text,
-  reliability = reliability_text,
-  concurrent_validity = concurrent_validity_text,
-  covariates = covariates_text,
-  regression = regression_text
-)
-
-# Return the formatted results (invisible so it doesn't print when sourced)
-invisible(formatted_results)

@@ -1,28 +1,22 @@
-## 6_SF_RegressionModel.R
+## 6b_SF_RegressionModel_EFcomponents.R
 # Author: Quentin Chenot
-# Date: 2025-11-06
-# Description: This script performs multiple linear regression to predict Space Fortress 
-#              performance from Executive Functions and covariates.
+# Date: 2026-05-26
+# Description: Simplified multiple linear regression to predict Space Fortress
+#              performance using EF subcomponents and covariates.
 #
 # Research Question:
-#   What factors predict Space Fortress performance?
-#   - Executive Functions (primary predictor)
-#   - Age
-#   - Education Level
-#   - Video Game Experience
-#   - Sex
+#   What factors predict Space Fortress performance when EF is modeled as
+#   three correlated but distinct components?
 #
 # Methodology:
-#   - Multiple linear regression with all predictors
-#   - Model assumptions testing:
-#     * Linearity (residuals vs fitted plot)
-#     * Normality of residuals (KS test, QQ-plot)
-#     * Homoscedasticity (Breusch-Pagan test)
-#     * Independence (Durbin-Watson test)
-#   - 10-fold cross-validation for model validation
+#   - Multiple linear regression with EF subcomponents + covariates
+#   - Multicollinearity diagnostics (EF correlation matrix, VIF/GVIF)
+#   - Type-II ANOVA (unique contribution of each predictor)
+#   - Joint EF test (all 3 EF coefficients = 0)
+#   - Assumption checks and 10-fold cross-validation
 #
 # Output:
-#   Returns a list with all regression results
+#   Returns a compact list with model, diagnostics, and key inferential tests
 
 ################################################################################
 ## SETUP
@@ -39,7 +33,7 @@ if (requireNamespace("rstudioapi", quietly = TRUE) && rstudioapi::isAvailable())
 source("utils.R")
 
 # Load required packages
-required_packages <- c("ggplot2", "ggpubr", "dplyr", "broom", "lmtest", "car")
+required_packages <- c("broom", "lmtest", "car", "ggplot2", "ggpubr")
 load_packages(required_packages)
 
 # Path management
@@ -59,14 +53,25 @@ dir.create(figure_path, recursive = TRUE, showWarnings = FALSE)
 # Ensure Sex is a factor
 df_final$Sex <- as.factor(df_final$Sex)
 
-# Check for missing data
-model_vars <- c("zscore_SF", "zscore_EF", "Age", "EducationLevel", "VGexp", "Sex")
+# Variables used in this model
+model_vars <- c(
+  "zscore_SF", "zscore_inhibition", "zscore_WM", "zscore_shifting",
+  "Age", "EducationLevel", "VGexp", "Sex"
+)
 missing_count <- sum(!complete.cases(df_final[, model_vars]))
 
-model_formula <- zscore_SF ~ zscore_EF + Age + EducationLevel + VGexp + Sex
+model_formula <- zscore_SF ~ zscore_inhibition + zscore_WM + zscore_shifting + Age + EducationLevel + VGexp + Sex
 
-# Correlation matrix among numeric predictors for multicollinearity screening
-numeric_predictors <- c("zscore_EF", "Age", "EducationLevel", "VGexp")
+# Correlations among EF subcomponents to document their interdependence
+ef_components <- c("zscore_inhibition", "zscore_WM", "zscore_shifting")
+ef_cor_matrix <- stats::cor(
+  df_final[, ef_components],
+  use = "pairwise.complete.obs",
+  method = "pearson"
+)
+
+# Correlation matrix among all numeric predictors for multicollinearity screening
+numeric_predictors <- c("zscore_inhibition", "zscore_WM", "zscore_shifting", "Age", "EducationLevel", "VGexp")
 predictor_cor_matrix <- stats::cor(
   df_final[, numeric_predictors],
   use = "pairwise.complete.obs",
@@ -98,10 +103,40 @@ if (!is.null(model1_summary$fstatistic)) {
   f_pvalue <- NA
 }
 
-# Get coefficients with confidence intervals
+# Coefficients with confidence intervals
 coef_table <- broom::tidy(model1, conf.int = TRUE, conf.level = 0.95)
 
-# VIF/GVIF diagnostics for multicollinearity
+# Type-II ANOVA provides each predictor's unique contribution
+type2_table <- car::Anova(model1, type = 2)
+
+# Joint test for EF components (all EF slopes = 0)
+ef_joint_test <- car::linearHypothesis(
+  model1,
+  c(
+    "zscore_inhibition = 0",
+    "zscore_WM = 0",
+    "zscore_shifting = 0"
+  )
+)
+
+# Helper to extract model F-test in a robust way
+extract_f_test <- function(model_summary) {
+  if (is.null(model_summary$fstatistic)) {
+    return(list(f_value = NA, f_df1 = NA, f_df2 = NA, f_pvalue = NA))
+  }
+
+  fstat <- model_summary$fstatistic
+  list(
+    f_value = as.numeric(fstat[1]),
+    f_df1 = as.integer(fstat[2]),
+    f_df2 = as.integer(fstat[3]),
+    f_pvalue = pf(fstat[1], fstat[2], fstat[3], lower.tail = FALSE)
+  )
+}
+
+f_test <- extract_f_test(model1_summary)
+
+# VIF/GVIF diagnostics
 vif_raw <- car::vif(model1)
 if (is.matrix(vif_raw)) {
   adj_col <- "GVIF^(1/(2*Df))"
@@ -150,7 +185,6 @@ vif_over_10_terms <- vif_table$term[which(vif_metric > 10)]
 ## TEST MODEL ASSUMPTIONS
 ################################################################################
 
-# Extract residuals and fitted values
 resid_vals <- residuals(model1)
 fitted_vals <- fitted(model1)
 
@@ -162,9 +196,12 @@ bp_test <- lmtest::bptest(model1)
 
 # 3) Kolmogorov-Smirnov test (normality of residuals)
 resid_jittered <- resid_vals + rnorm(length(resid_vals), mean = 0, sd = 1e-10)
-ks_test <- ks.test(resid_jittered, "pnorm", 
-                   mean = mean(resid_vals), 
-                   sd = sd(resid_vals))
+ks_test <- ks.test(
+  resid_jittered,
+  "pnorm",
+  mean = mean(resid_vals),
+  sd = sd(resid_vals)
+)
 
 ################################################################################
 ## CREATE DIAGNOSTIC PLOTS
@@ -213,62 +250,48 @@ plot4 <- ggplot(diag_df, aes(x = resid)) +
   ylab("Frequency") +
   ggtitle("Distribution of Residuals")
 
-# Save diagnostic plots (optional - can be removed if not needed)
-# ggsave(file.path(figure_path, "Fig6_diagnostics.pdf"), 
-#        plot = gridExtra::grid.arrange(plot1, plot2, plot3, plot4, ncol = 2),
-#        width = 10, height = 8)
-
 ################################################################################
 ## CROSS-VALIDATION
 ################################################################################
 
-set.seed(123)
-k <- 10
-n <- nrow(df_final)
-folds <- sample(rep(1:k, length.out = n))
+run_kfold_cv <- function(data, formula, k = 10, seed = 123) {
+  set.seed(seed)
 
-cv_metrics <- data.frame(
-  fold = integer(0), 
-  RMSE = numeric(0), 
-  R2 = numeric(0),
-  MAE = numeric(0)
-)
-
-for (fold in 1:k) {
-  train_idx <- which(folds != fold)
-  test_idx  <- which(folds == fold)
-  train_df <- df_final[train_idx, , drop = FALSE]
-  test_df  <- df_final[test_idx, , drop = FALSE]
-  
-  fit_cv <- lm(
-    zscore_SF ~ zscore_EF + Age + EducationLevel + VGexp + Sex, 
-    data = train_df
+  n <- nrow(data)
+  folds <- sample(rep(1:k, length.out = n))
+  out <- data.frame(
+    fold = seq_len(k),
+    RMSE = NA_real_,
+    R2 = NA_real_,
+    MAE = NA_real_
   )
-  
-  preds <- predict(fit_cv, newdata = test_df)
-  obs <- test_df$zscore_SF
-  
-  valid <- !is.na(preds) & !is.na(obs)
-  
-  if (sum(valid) > 0) {
-    RMSE_fold <- sqrt(mean((obs[valid] - preds[valid])^2))
-    SSE <- sum((obs[valid] - preds[valid])^2)
-    SST <- sum((obs[valid] - mean(obs[valid]))^2)
-    R2_fold <- ifelse(SST == 0, NA, 1 - SSE/SST)
-    MAE_fold <- mean(abs(obs[valid] - preds[valid]))
-  } else {
-    RMSE_fold <- NA
-    R2_fold <- NA
-    MAE_fold <- NA
+
+  for (fold in seq_len(k)) {
+    train_df <- data[folds != fold, , drop = FALSE]
+    test_df <- data[folds == fold, , drop = FALSE]
+
+    fit_cv <- lm(formula, data = train_df)
+    preds <- predict(fit_cv, newdata = test_df)
+    obs <- test_df$zscore_SF
+    valid <- !is.na(preds) & !is.na(obs)
+
+    if (!any(valid)) {
+      next
+    }
+
+    resid_cv <- obs[valid] - preds[valid]
+    sse <- sum(resid_cv^2)
+    sst <- sum((obs[valid] - mean(obs[valid]))^2)
+
+    out$RMSE[fold] <- sqrt(mean(resid_cv^2))
+    out$R2[fold] <- ifelse(sst == 0, NA_real_, 1 - sse / sst)
+    out$MAE[fold] <- mean(abs(resid_cv))
   }
-  
-  cv_metrics <- rbind(cv_metrics, data.frame(
-    fold = fold, 
-    RMSE = RMSE_fold, 
-    R2 = R2_fold,
-    MAE = MAE_fold
-  ))
+
+  out
 }
+
+cv_metrics <- run_kfold_cv(df_final, model_formula, k = 10, seed = 123)
 
 # Assumptions summary
 assumptions <- list(
@@ -282,59 +305,63 @@ assumptions <- list(
 ## STORE RESULTS
 ################################################################################
 
-regression_results <- list(
+regression_results_ef_components <- list(
   # Sample info
-  model_vars = model_vars,
+  model_type = "EF subcomponents",
   model_formula = deparse(model_formula),
+  model_vars = model_vars,
   n_total = nrow(df_final),
   n_complete = nrow(df_final) - missing_count,
   n_missing = missing_count,
 
-  # Multicollinearity diagnostics
+  # EF component relationships and collinearity
+  ef_cor_matrix = ef_cor_matrix,
   predictor_cor_matrix = predictor_cor_matrix,
   max_abs_predictor_correlation = max_abs_cor,
   high_correlation_pairs_over_0_80 = high_cor_terms,
   vif_table = vif_table,
   vif_over_10_terms = vif_over_10_terms,
-  
+
   # Model object and summary
   model = model1,
   model_summary = model1_summary,
-  
+
   # Model statistics
   r_squared = model1_summary$r.squared,
   adj_r_squared = model1_summary$adj.r.squared,
   residual_se = model1_summary$sigma,
   df_residual = model1_summary$df[2],
-  f_value = f_value,
-  f_df1 = f_df1,
-  f_df2 = f_df2,
-  f_pvalue = f_pvalue,
-  
-  # Coefficients
+  f_value = f_test$f_value,
+  f_df1 = f_test$f_df1,
+  f_df2 = f_test$f_df2,
+  f_pvalue = f_test$f_pvalue,
+
+  # Coefficients and inferential tests
   coef_table = coef_table,
-  
+  type2_table = type2_table,
+  ef_joint_test = ef_joint_test,
+
   # Assumptions tests
   dw_statistic = dw_test$statistic,
   dw_pvalue = dw_test$p.value,
   dw_met = dw_test$p.value > 0.05,
-  
+
   bp_statistic = bp_test$statistic,
   bp_pvalue = bp_test$p.value,
   bp_met = bp_test$p.value > 0.05,
-  
+
   ks_statistic = ks_test$statistic,
   ks_pvalue = ks_test$p.value,
   ks_met = ks_test$p.value > 0.05,
   resid_mean = mean(resid_vals),
   resid_sd = sd(resid_vals),
-  
+
   # Diagnostic plots
   plot_resid_fitted = plot1,
   plot_qq = plot2,
   plot_scale_location = plot3,
   plot_histogram = plot4,
-  
+
   # Cross-validation
   cv_metrics = cv_metrics,
   cv_rmse_mean = mean(cv_metrics$RMSE, na.rm = TRUE),
@@ -349,26 +376,38 @@ regression_results <- list(
 )
 
 # Print confirmation
-cat("Regression analysis completed.\n")
-cat(sprintf("Model R² = %.3f, Adjusted R² = %.3f\n", 
-            regression_results$r_squared, 
-            regression_results$adj_r_squared))
-cat(sprintf("F(%d, %d) = %.3f, %s\n", 
-            regression_results$f_df1, 
-            regression_results$f_df2,
-            regression_results$f_value,
-            format_p_value(regression_results$f_pvalue)))
+cat("Regression (EF components) analysis completed.\n")
+cat(sprintf("Model R2 = %.3f, Adjusted R2 = %.3f\n",
+            regression_results_ef_components$r_squared,
+            regression_results_ef_components$adj_r_squared))
+cat(sprintf("F(%d, %d) = %.3f, %s\n",
+            regression_results_ef_components$f_df1,
+            regression_results_ef_components$f_df2,
+            regression_results_ef_components$f_value,
+            format_p_value(regression_results_ef_components$f_pvalue)))
 
 cat("\nAssumption checks:\n")
-cat(sprintf("- Independence (Durbin-Watson): %s\n", ifelse(regression_results$dw_met, "met", "not met")))
-cat(sprintf("- Homoscedasticity (Breusch-Pagan): %s\n", ifelse(regression_results$bp_met, "met", "not met")))
-cat(sprintf("- Residual normality (KS): %s\n", ifelse(regression_results$ks_met, "met", "not met")))
-cat(sprintf("- No multicollinearity (|r| < .80 and VIF < 10): %s\n", ifelse(regression_results$assumptions$no_multicollinearity, "met", "not met")))
+cat(sprintf("- Independence (Durbin-Watson): %s\n", ifelse(regression_results_ef_components$dw_met, "met", "not met")))
+cat(sprintf("- Homoscedasticity (Breusch-Pagan): %s\n", ifelse(regression_results_ef_components$bp_met, "met", "not met")))
+cat(sprintf("- Residual normality (KS): %s\n", ifelse(regression_results_ef_components$ks_met, "met", "not met")))
+cat(sprintf("- No multicollinearity (|r| < .80 and VIF < 10): %s\n", ifelse(regression_results_ef_components$assumptions$no_multicollinearity, "met", "not met")))
 
-if (length(regression_results$high_correlation_pairs_over_0_80) > 0) {
-  cat("  High-correlation pairs:", paste(regression_results$high_correlation_pairs_over_0_80, collapse = ", "), "\n")
+if (length(regression_results_ef_components$high_correlation_pairs_over_0_80) > 0) {
+  cat("  High-correlation pairs:", paste(regression_results_ef_components$high_correlation_pairs_over_0_80, collapse = ", "), "\n")
 }
 
-if (length(regression_results$vif_over_10_terms) > 0) {
-  cat("  Terms with VIF/GVIF-adjusted > 10:", paste(regression_results$vif_over_10_terms, collapse = ", "), "\n")
+if (length(regression_results_ef_components$vif_over_10_terms) > 0) {
+  cat("  Terms with VIF/GVIF-adjusted > 10:", paste(regression_results_ef_components$vif_over_10_terms, collapse = ", "), "\n")
 }
+
+cat("\nEF intercorrelations:\n")
+print(round(regression_results_ef_components$ef_cor_matrix, 3))
+
+cat("\nVIF/GVIF diagnostics:\n")
+print(regression_results_ef_components$vif_table)
+
+cat("\nType-II ANOVA table:\n")
+print(regression_results_ef_components$type2_table)
+
+cat("\nJoint EF test (all three EF slopes = 0):\n")
+print(regression_results_ef_components$ef_joint_test)

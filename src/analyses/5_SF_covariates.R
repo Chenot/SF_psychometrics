@@ -64,7 +64,7 @@ plot_VGexp <- ggplot(df_final, aes(x = VGexp, y = zscore_SF)) +
   geom_point(alpha = 0.6, size = 2, color = "black", shape = 16) +
   annotate("text", x = 2, y = 2.5, label = cor_label_VGexp, hjust = 0, size = 3.5) +
   theme_pubr() +
-  xlab("Video Game Experience (years)") +
+  xlab("Video game experience questionnaire score") +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
@@ -76,7 +76,7 @@ result_EL <- test_normality_and_correlate(
   df_final$zscore_SF, 
   df_final$EducationLevel,
   "Space Fortress (z-score)", 
-  "Education Level",
+  "Education level",
   print_results = FALSE
 )
 
@@ -87,7 +87,7 @@ plot_EL <- ggplot(df_final, aes(x = EducationLevel, y = zscore_SF)) +
   geom_point(alpha = 0.6, size = 2, color = "black", shape = 16) +
   annotate("text", x = 12, y = 2.5, label = cor_label_EL, hjust = 0, size = 3.5) +
   theme_pubr() +
-  xlab("Education Level (years)") +
+  xlab("Education level (years)") +
   ylab("Space Fortress (z-score)") +
   theme(plot.title = element_text(hjust = 0.1))
 
