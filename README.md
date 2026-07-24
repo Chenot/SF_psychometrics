@@ -1,139 +1,33 @@
-# Evaluating the Space Fortress task for executive functions training applications: Psychometric evidence and cognitive correlates
-- **Journal:** Submitted to Heliyon Applied Psychology
-- **Authors:** Quentin Chenot and Sébastien Scannella
-- **Date of submission:** 2025-06-04 [YYYY-MM-DD]
+# Space Fortress — Psychometrics & EF correlates (reproducible)
 
-This repository contains the R scripts used for data preprocessing and analysis in the associated scientific article.
+Repository containing preprocessing and analysis code for: "The Space Fortress task: Psychometrics Evidence and Relationship with
+Executive Functions".
 
-## **Directory Structure**
-```
-project/
-├── data/
-│   └── sub-<participant_id>/
-│       └── ses-<session_number>/
-│           └── behavior/
-├── tmp_data/
-│   └── sub-<participant_id>/
-│       └── ses-<session_number>/
-│           └── behavior/
-├── results/
-│   ├── combined_data/
-│   │   └── behavior/
-│   └── figures/
-└── src/
-    ├── preprocessing/
-    │   └── behavior/
-    │       ├── _main.R
-    │       ├── SF.R
-    │       ├── antisaccade.R
-    │       ├── categoryswitch.R
-    │       ├── colorshape.R
-    │       ├── dualnback.R
-    │       ├── keeptrack.R
-    │       ├── lettermemory.R
-    │       ├── numberletter.R
-    │       ├── stopsignal.R
-    │       └── stroop.R  
-    └── analyses/
-        ├── P01_combine_data.R
-        ├── P02_behavioral_data_transformation.R
-        ├── P03_demographics.R
-        ├── P04_SF_psychometrics.R
-        ├── P05_hypotheses.R
-        └── P06_SupplementaryMaterial.R
-```
+Key points
+- **Data**: raw data are located in the `data/` folder.
+- **Scripts**: Scripts are located under the `src/` folder. 
+- **Results**: Results from the scripts are located under the `results/` folder. 
+- **License**: MIT (see LICENSE.md).
 
-## **Scripts Overview**
+Quick start
+- Prerequisites: R (>= 4.0) and internet access for installing packages.
+- From the project root, install packages and run preprocessing and analyses in R:
 
-### **Preprocessing Scripts (`src/preprocessing/behavior/`)**
+  1) Preprocessing (creates combined behavioral data):
+     Rscript -e "source('src/preprocessing/behavior/_main.R')"
 
-1. **Main Script (`_main.R`)**
-   - Manages directory creation and file organization
-   - Sources and runs all task-specific preprocessing scripts
-   - Saves preprocessed data in `/results/combined_data/behavior/`
+  2) Full analysis pipeline:
+     Rscript -e "source('src/analyses/_main.r')"
 
-2. **Space Fortress Processing (`SF.R`)**
-   - Processes raw individual Space Fortress data
-   - Computes performance scores for each game session
-   - Saves processed data in `/tmp_data/` and `/results/combined_data/behavior/`
+Notes on scripts and outputs
+- Preprocessing scripts: [src/preprocessing/behavior/_main.R](src/preprocessing/behavior/_main.R)
+- Analysis scripts: [src/analyses/_main.r](src/analyses/_main.r) and individual analyses in [src/analyses/](src/analyses/)
+- Figures and combined data are written to `results/figures/` and `results/combined_data/` respectively.
+- Default random seed used in analyses: `123` (set inside CV scripts) to improve reproducibility of resampling results.
 
-3. **Task-Specific Scripts**
-   - Preprocess data from executive function tasks:
-     - Antisaccade
-     - Category Switch
-     - Color Shape
-     - Dual N-back
-     - Keep Track
-     - Letter Memory
-     - Number Letter
-     - Stop Signal
-     - Stroop
+Dependencies & package management
+- Most scripts call the helper `load_packages()` in [src/analyses/utils.R](src/analyses/utils.R) which will install missing CRAN packages automatically.
+- Otherwise, install the core packages used: `dplyr`, `ggplot2`, `ggpubr`, `broom`, `lmtest`, `car`, `pwr`, `irr`.
 
-### **Analysis Scripts (`src/analyses/`)**
-
-1. **Data Combination (`P01_combine_data.R`)**
-   - Combines demographics and task performance data
-   - Creates unified dataset for analysis in `results/combined_data/`
-
-2. **Data Transformation (`P02_behavioral_data_transformation.R`)**
-   - Performs data transformations
-   - Calculates z-scores for task performance
-   - Saves output in `results/combined_data/`
-
-3. **Demographics Analysis (`P03_demographics.R`)**
-   - Extracts and summarizes participant demographics in the Terminal
-
-4. **Space Fortress Psychometrics (`P04_SF_psychometrics.R`)**
-   - Analyzes Space Fortress sensitivity and reliability
-   - Generates text with the results in the Terminal
-   - Generates and saves associated figures in `results/figures/`
-
-5. **Hypotheses Testing (`P05_hypotheses.R`)**
-   - Tests main hypotheses about relationships between:
-     - Space Fortress performance and executive functions
-     - Space Fortress performance and demographics
-   - Generates text with the results in the Terminal  
-   - Generates and saves associated figures in `results/figures/`
-
-6. **Supplementary Analyses (`P06_SupplementaryMaterial.R`)**
-   - Creates statisticals analyses available in supplementary materials
-   - Generates text with the results in the Terminal
-   - Generates and saves associated figures in `results/figures/`
-
-## **Instructions**
-
-1. **Setup**
-   - Ensure raw data are under `data/`
-
-2. **Preprocessing**
-   - Run `_main.R` to process all behavioral data
-   - Check `tmp_data/` for intermediate results
-
-3. **Analysis**
-   - **From raw data:** Run `P01_combine_data.R` and `P02_behavioral_data_transformation.R` to obtain preprocessed data stored in `/results/combined_data`
-   - **From preprocessed data:** Run `P03_demographics.R`, `P04_SF_psychometrics.R`, `P05_hypotheses.R` and `P06_SupplementaryMaterial.R`
-   - Generated figures will be saved in `results/figures/`
-
-## **Dependencies**
-
-### **Statistical analysis software**
-- R and RStudio
-- Required packages: `dplyr`, `tidyr`, `reshape2`, `ggplot2`, `ggpubr`, `ggExtra`, `cowplot`, `e1071`, `nortest`, `psych`, `broom`, `rstudioapi`, `stringr`, `foreach`, `bestNormalize`
-
-### **Computational Environment**
-- OS: Windows 10
-- R version: 4.2.0
-- RStudio version: 2023.06.0
-
-## **License**
-This project is licensed under [MIT License](LICENSE.md) - see LICENSE.md file for details
-
-## **Preregistration**
-The analysis plan for this study was preregistered on OSF: [[link to preregistration](https://osf.io/5t3re/)]
-
-## **Data Availability**
-- Raw data are available upon request (contact: quentinchenot@gmail.com)
-- Preprocessed data are available on Github: [[link to Github](https://github.com/Chenot/SF_EFs/)]
-
-## **Contact**
-For questions or issues, please contact Quentin Chenot [quentinchenot@gmail.com].
+Contact
+- For data requests or questions, contact Quentin Chenot (quentinchenot@gmail.com).

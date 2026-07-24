@@ -65,6 +65,9 @@ missing_count <- sum(!complete.cases(df_final[, model_vars]))
 
 model_formula <- zscore_SF ~ zscore_EF + Age + EducationLevel + VGexp + Sex
 
+# Simplified model used for cross-validation (keep full model for reported regression)
+model_formula_cv <- zscore_SF ~ zscore_EF + Sex
+
 # Correlation matrix among numeric predictors for multicollinearity screening
 numeric_predictors <- c("zscore_EF", "Age", "EducationLevel", "VGexp")
 predictor_cor_matrix <- stats::cor(
@@ -219,55 +222,62 @@ plot4 <- ggplot(diag_df, aes(x = resid)) +
 #        width = 10, height = 8)
 
 ################################################################################
-## CROSS-VALIDATION
+## REPEATED K-FOLD CROSS-VALIDATION
+## Performs k-fold CV repeated `repeats` times and records fold + repeat identifiers
 ################################################################################
 
 set.seed(123)
 k <- 10
+repeats <- 50
 n <- nrow(df_final)
-folds <- sample(rep(1:k, length.out = n))
 
 cv_metrics <- data.frame(
+  repeat_id = integer(0),
   fold = integer(0), 
   RMSE = numeric(0), 
   R2 = numeric(0),
   MAE = numeric(0)
 )
 
-for (fold in 1:k) {
-  train_idx <- which(folds != fold)
-  test_idx  <- which(folds == fold)
-  train_df <- df_final[train_idx, , drop = FALSE]
-  test_df  <- df_final[test_idx, , drop = FALSE]
-  
-  fit_cv <- lm(
-    zscore_SF ~ zscore_EF + Age + EducationLevel + VGexp + Sex, 
-    data = train_df
-  )
-  
-  preds <- predict(fit_cv, newdata = test_df)
-  obs <- test_df$zscore_SF
-  
-  valid <- !is.na(preds) & !is.na(obs)
-  
-  if (sum(valid) > 0) {
-    RMSE_fold <- sqrt(mean((obs[valid] - preds[valid])^2))
-    SSE <- sum((obs[valid] - preds[valid])^2)
-    SST <- sum((obs[valid] - mean(obs[valid]))^2)
-    R2_fold <- ifelse(SST == 0, NA, 1 - SSE/SST)
-    MAE_fold <- mean(abs(obs[valid] - preds[valid]))
-  } else {
-    RMSE_fold <- NA
-    R2_fold <- NA
-    MAE_fold <- NA
+for (rep_i in 1:repeats) {
+  folds <- sample(rep(1:k, length.out = n))
+  for (fold in 1:k) {
+    train_idx <- which(folds != fold)
+    test_idx  <- which(folds == fold)
+    train_df <- df_final[train_idx, , drop = FALSE]
+    test_df  <- df_final[test_idx, , drop = FALSE]
+    
+    fit_cv <- lm(
+      zscore_SF ~ zscore_EF + Sex, 
+      # zscore_SF ~ zscore_EF + Age + EducationLevel + VGexp + Sex,
+      data = train_df
+    )
+    
+    preds <- predict(fit_cv, newdata = test_df)
+    obs <- test_df$zscore_SF
+    
+    valid <- !is.na(preds) & !is.na(obs)
+    
+    if (sum(valid) > 0) {
+      RMSE_fold <- sqrt(mean((obs[valid] - preds[valid])^2))
+      SSE <- sum((obs[valid] - preds[valid])^2)
+      SST <- sum((obs[valid] - mean(obs[valid]))^2)
+      R2_fold <- ifelse(SST == 0, NA, 1 - SSE/SST)
+      MAE_fold <- mean(abs(obs[valid] - preds[valid]))
+    } else {
+      RMSE_fold <- NA
+      R2_fold <- NA
+      MAE_fold <- NA
+    }
+    
+    cv_metrics <- rbind(cv_metrics, data.frame(
+      repeat_id = rep_i,
+      fold = fold, 
+      RMSE = RMSE_fold, 
+      R2 = R2_fold,
+      MAE = MAE_fold
+    ))
   }
-  
-  cv_metrics <- rbind(cv_metrics, data.frame(
-    fold = fold, 
-    RMSE = RMSE_fold, 
-    R2 = R2_fold,
-    MAE = MAE_fold
-  ))
 }
 
 # Assumptions summary
@@ -277,6 +287,55 @@ assumptions <- list(
   normality = ks_test$p.value > 0.05,
   no_multicollinearity = (length(high_cor_terms) == 0) && !any(vif_metric > 10, na.rm = TRUE)
 )
+
+################################################################################
+# CV METRIC DISTRIBUTION PLOTS
+# Histogram + density for RMSE and R2 with mean and median vertical lines
+################################################################################
+
+# RMSE plot
+if (all(is.na(cv_metrics$RMSE))) {
+  plot_cv_rmse <- NULL
+} else {
+  rmse_mean <- mean(cv_metrics$RMSE, na.rm = TRUE)
+  rmse_med  <- median(cv_metrics$RMSE, na.rm = TRUE)
+  plot_cv_rmse <- ggplot(cv_metrics, aes(x = RMSE)) +
+    geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", color = "black", alpha = 0.7) +
+    geom_density(color = "darkblue", linewidth = 1, alpha = 0.3) +
+    geom_vline(xintercept = rmse_mean, color = "red", linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = rmse_med, color = "darkgreen", linetype = "dotted", linewidth = 1) +
+    theme_pubr() +
+    xlab("RMSE") + ylab("Density") +
+    ggtitle(bquote(atop(SF == beta[0] + beta[1]*EF + beta[2]*Sex + epsilon,
+               .(paste0("Distribution of CV RMSE (k = ", k, ", repeats = ", repeats, ")")) )) ) +
+    labs(subtitle = sprintf("mean = %.3f, median = %.3f", rmse_mean, rmse_med)) +
+    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+
+  # save
+  try(ggsave(file.path(figure_path, "SuppFig_CV_RMSE_density.pdf"), plot_cv_rmse, width = 7, height = 5))
+}
+
+# R2 plot
+if (all(is.na(cv_metrics$R2))) {
+  plot_cv_r2 <- NULL
+} else {
+  r2_mean <- mean(cv_metrics$R2, na.rm = TRUE)
+  r2_med  <- median(cv_metrics$R2, na.rm = TRUE)
+  plot_cv_r2 <- ggplot(cv_metrics, aes(x = R2)) +
+    geom_histogram(aes(y = ..density..), bins = 30, fill = "lightblue", color = "black", alpha = 0.7) +
+    geom_density(color = "darkblue", linewidth = 1, alpha = 0.3) +
+    geom_vline(xintercept = r2_mean, color = "red", linetype = "dashed", linewidth = 1) +
+    geom_vline(xintercept = r2_med, color = "darkgreen", linetype = "dotted", linewidth = 1) +
+    theme_pubr() +
+    xlab(expression(R^2)) + ylab("Density") +
+    ggtitle(bquote(atop(SF == beta[0] + beta[1]*EF + beta[2]*Sex + epsilon,
+               .(paste0("Distribution of CV R² (k = ", k, ", repeats = ", repeats, ")")) )) ) +
+    labs(subtitle = sprintf("mean = %.3f, median = %.3f", r2_mean, r2_med)) +
+    theme(plot.title = element_text(hjust = 0.5), plot.subtitle = element_text(hjust = 0.5))
+
+  # save
+  try(ggsave(file.path(figure_path, "SuppFig_CV_R2_density.pdf"), plot_cv_r2, width = 7, height = 5))
+}
 
 ################################################################################
 ## STORE RESULTS
@@ -334,13 +393,19 @@ regression_results <- list(
   plot_qq = plot2,
   plot_scale_location = plot3,
   plot_histogram = plot4,
+  plot_cv_rmse = plot_cv_rmse,
+  plot_cv_r2 = plot_cv_r2,
   
   # Cross-validation
   cv_metrics = cv_metrics,
+  cv_repeats = repeats,
   cv_rmse_mean = mean(cv_metrics$RMSE, na.rm = TRUE),
   cv_rmse_sd = sd(cv_metrics$RMSE, na.rm = TRUE),
   cv_r2_mean = mean(cv_metrics$R2, na.rm = TRUE),
   cv_r2_sd = sd(cv_metrics$R2, na.rm = TRUE),
+  cv_r2_median = median(cv_metrics$R2, na.rm = TRUE),
+  cv_r2_min = ifelse(all(is.na(cv_metrics$R2)), NA, min(cv_metrics$R2, na.rm = TRUE)),
+  cv_r2_max = ifelse(all(is.na(cv_metrics$R2)), NA, max(cv_metrics$R2, na.rm = TRUE)),
   cv_mae_mean = mean(cv_metrics$MAE, na.rm = TRUE),
   cv_mae_sd = sd(cv_metrics$MAE, na.rm = TRUE),
 
@@ -372,3 +437,11 @@ if (length(regression_results$high_correlation_pairs_over_0_80) > 0) {
 if (length(regression_results$vif_over_10_terms) > 0) {
   cat("  Terms with VIF/GVIF-adjusted > 10:", paste(regression_results$vif_over_10_terms, collapse = ", "), "\n")
 }
+
+# Cross-validation summary (include median and range for R2 per reviewer request)
+cat(sprintf("\nCross-validation (%d-fold, %d repeats) summary:\n", k, repeats))
+cat(sprintf("- RMSE mean (sd): %.3f (%.3f)\n", regression_results$cv_rmse_mean, regression_results$cv_rmse_sd))
+cat(sprintf("- MAE mean (sd): %.3f (%.3f)\n", regression_results$cv_mae_mean, regression_results$cv_mae_sd))
+cat(sprintf("- R² mean (sd): %.3f (%.3f)\n", regression_results$cv_r2_mean, regression_results$cv_r2_sd))
+cat(sprintf("- R² median: %.3f\n", regression_results$cv_r2_median))
+cat(sprintf("- R² range: [%.3f, %.3f]\n", regression_results$cv_r2_min, regression_results$cv_r2_max))

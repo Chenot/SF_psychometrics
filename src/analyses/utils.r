@@ -31,22 +31,27 @@ load_packages <- function(packages) {
 #'
 #' @param project_dir Path to project root directory
 #' @param z_scored Logical, load z-scored data? (default: TRUE)
+#' @param zscored_untransformed Logical, load the untransformed z-scored file? (default: FALSE)
+#'   If TRUE, this takes precedence over `z_scored` and attempts to load
+#'   `data_zscored_untransformed.csv` from the combined_data folder.
 #' @return Data frame with loaded data
-load_data <- function(project_dir, z_scored = TRUE) {
-  if (z_scored) {
+load_data <- function(project_dir, z_scored = TRUE, zscored_untransformed = FALSE) {
+  if (zscored_untransformed) {
+    file_path <- file.path(project_dir, "results", "combined_data", "data_zscored_untransformed.csv")
+  } else if (z_scored) {
     file_path <- file.path(project_dir, "results", "combined_data", "data_zscored.csv")
   } else {
     file_path <- file.path(project_dir, "results", "combined_data", "data.csv")
   }
-  
+
   if (!file.exists(file_path)) {
     stop(paste("Data file not found:", file_path))
   }
-  
+
   df <- read.csv(file_path)
   # message(paste("Loaded data from:", basename(file_path)))
   # message(paste("Sample size:", nrow(df), "participants"))
-  
+
   return(df)
 }
 
