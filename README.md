@@ -4,7 +4,7 @@ Repository containing preprocessing and analysis code for: "The Space Fortress t
 Executive Functions".
 
 Key points
-- **Data**: raw data are located in the `data/` folder.
+- **Data**: raw data should be located in the `data/` folder (the dataset is publicly available on Zenodo: https://doi.org/10.5281/zenodo.21533639).
 - **Scripts**: Scripts are located under the `src/` folder. 
 - **Results**: Results from the scripts are located under the `results/` folder. 
 - **License**: MIT (see LICENSE.md).
