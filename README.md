@@ -1,4 +1,4 @@
-# Space Fortress — Psychometrics & EF correlates (reproducible)
+# Space Fortress — Psychometrics & EF correlates
 
 Repository containing preprocessing and analysis code for: "The Space Fortress task: Psychometrics Evidence and Relationship with
 Executive Functions".
